@@ -381,12 +381,6 @@ MulticopterAttitudeControl::control_attitude(float dt)
 	vehicle_attitude_setpoint_poll();
 	_thrust_sp = _v_att_sp.thrust;
 
-	/* prepare yaw weight from the ratio between roll/pitch and yaw gains */
-	Vector3f attitude_gain = _attitude_p;
-	const float roll_pitch_gain = (attitude_gain(0) + attitude_gain(1)) / 2.f;
-	const float yaw_w = math::constrain(attitude_gain(2) / roll_pitch_gain, 0.f, 1.f);
-	attitude_gain(2) = roll_pitch_gain;
-
 	/* get estimated and desired vehicle attitude */
 	Quatf q(_v_att.q);
 	Quatf qd(_v_att_sp.q_d);
