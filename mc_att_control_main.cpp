@@ -633,9 +633,10 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 	/* calculate integration of tracking error, z */
 	float int_tracking_err = 0.f;
 
-	/* Create auxiliary state matrix, x bar */
+	/* create auxiliary state matrix, x bar */
 	float data[3] = {int_tracking_err, eB(0), _v_att.rollspeed};
 	Matrix<float, 3, 1> x_bar(data);
+	
 }
 
 void
@@ -734,7 +735,7 @@ MulticopterAttitudeControl::run()
 				control_cnf_attitude(dt);
 
 			} else {
-				
+
 				/* Check if we are in rattitude mode and the pilot is above the threshold on pitch
 				* or roll (yaw can rotate 360 in normal att control).  If both are true don't
 				* even bother running the attitude controllers */

@@ -243,7 +243,15 @@ private:
 
 		(ParamFloat<px4::params::VT_WV_YAWR_SCL>) _vtol_wv_yaw_rate_scale,		/**< Scale value [0, 1] for yaw rate setpoint  */
 
-		(ParamInt<px4::params::MC_CNF_ENABLE>) _cnf_enabled
+		(ParamInt<px4::params::MC_CNF_ENABLE>) _cnf_enabled,
+
+		(ParamInt<px4::params::MC_CNF_F1>) _cnf_f1,
+		(ParamInt<px4::params::MC_CNF_F2>) _cnf_f2,
+		(ParamInt<px4::params::MC_CNF_F3>) _cnf_f3,
+
+		(ParamInt<px4::params::MC_CNF_P1>) _cnf_p1,
+		(ParamInt<px4::params::MC_CNF_P2>) _cnf_p2,
+		(ParamInt<px4::params::MC_CNF_P3>) _cnf_p3
 	)
 
 	matrix::Vector3f _attitude_p;		/**< P gain for attitude control */

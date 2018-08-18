@@ -586,3 +586,81 @@ PARAM_DEFINE_INT32(MC_AIRMODE, 0);
  * @group CNF Control
  */
 PARAM_DEFINE_INT32(MC_CNF_ENABLE, 1);
+
+/**
+ * CNF F1
+ * 
+ * Parameter 1 of F matrix
+ * 
+ * @min -1000.0
+ * @max 1000.0
+ * @decimal 2
+ * @increment 0.01
+ * @group CNF Control
+ */
+PARAM_DEFINE_FLOAT(MC_CNF_F1, -19.11f);
+
+/**
+ * CNF F2
+ * 
+ * Parameter 2 of F matrix
+ * 
+ * @min -1000.0
+ * @max 1000.0
+ * @decimal 2
+ * @increment 0.01
+ * @group CNF Control
+ */
+PARAM_DEFINE_FLOAT(MC_CNF_F2, -191.19f);
+
+/**
+ * CNF F3
+ * 
+ * Parameter 3 of F matrix
+ * 
+ * @min -1000.0
+ * @max 1000.0
+ * @decimal 2
+ * @increment 0.01
+ * @group CNF Control
+ */
+PARAM_DEFINE_FLOAT(MC_CNF_F3, -11.07f);
+
+/**
+ * CNF P1
+ * 
+ * Parameter 1 of P matrix
+ * 
+ * @min -1000.0
+ * @max 1000.0
+ * @decimal 2
+ * @increment 0.01
+ * @group CNF Control
+ */
+PARAM_DEFINE_FLOAT(MC_CNF_P1, 0.30f);
+
+/**
+ * CNF P2
+ * 
+ * Parameter 2 of P matrix
+ * 
+ * @min -1000.0
+ * @max 1000.0
+ * @decimal 2
+ * @increment 0.01
+ * @group CNF Control
+ */
+PARAM_DEFINE_FLOAT(MC_CNF_P2, 10.46f);
+
+/**
+ * CNF P3
+ * 
+ * Parameter 3 of P matrix
+ * 
+ * @min -1000.0
+ * @max 1000.0
+ * @decimal 2
+ * @increment 0.01
+ * @group CNF Control
+ */
+PARAM_DEFINE_FLOAT(MC_CNF_P3, 1.04f);
