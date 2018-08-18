@@ -596,6 +596,17 @@ MulticopterAttitudeControl::control_attitude_rates(float dt)
 }
 
 /*
+ * Nonlinear function for CNF control law calculation
+ * Input: error float
+ * Output: nonlinear term float
+ */
+float
+MulticopterAttitudeControl::cnf_nonlinear_f(float error)
+{
+	return -_cnf_beta * exp(-_cnf_alpha * abs(error));
+}
+
+/*
  * Composite Nonlinear Feedback Attitude controller.
  * Input: 'vehicle_attitude_setpoint' topic
  * Output: '_att_control' vector
@@ -627,11 +638,12 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 
 	/* calculate rotating angle */
 	float rotating_angle = atan2f((e_Bz % e_Bz_ref).length() , e_Bz * e_Bz_ref);
-	
+
 	/* find eB, angle to compensate for body frame x and y axis */
 	Vector3f eB = AxisAnglef(K_B, rotating_angle);
 
 	/* calculate attitude error */
+	// CHECK if 3-2-1 intrinsic Tait-Bryan corresponds to roll-pitch-yaw
 	Euler att_err = Euler(qd * q.inversed());
 
 	/* update integral only if we are not landed */
@@ -676,13 +688,15 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 	Matrix<float, 3, 1> roll_state(data);
 	float data2[3] = {pitch_z(AXIS_INDEX_PITCH), eB(AXIS_INDEX_PITCH), _v_att.pitchspeed};
 	Matrix<float, 3, 1> pitch_state(data);
-	
-	/* linear law */
-
-	/* nonlinear law */
 
 	/* final combined output */
+	float output_roll = F * roll_state + cnf_nonlinear_f(att_err(0)) * P * roll_state;
+	float output_pitch = F * pitch_state + cnf_nonlinear_f(att_err(1)) * P * pitch_state;
 
+	/* copy output to _att_control to publish actuator_controls message */
+	_att_control(0) = output_roll;
+	_att_control(1) = output_pitch;
+	
 }
 
 void

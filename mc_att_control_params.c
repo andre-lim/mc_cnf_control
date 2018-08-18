@@ -677,3 +677,29 @@ PARAM_DEFINE_FLOAT(MC_CNF_P3, 1.04f);
  * @group CNF Control
  */
 PARAM_DEFINE_FLOAT(MC_CNF_KI, 0.1f);
+
+/**
+ * CNF nonlinear function alpha
+ * 
+ * Nonlinear function alpha term
+ * 
+ * @min 0.0
+ * @max 10.0
+ * @decimal 1
+ * @increment 0.01
+ * @group CNF Control
+ */
+PARAM_DEFINE_FLOAT(MC_CNF_ALPHA, 1.0f);
+
+/**
+ * CNF nonlinear function beta
+ * 
+ * Nonlinear function beta term
+ * 
+ * @min 0.0
+ * @max 100.0
+ * @decimal 1
+ * @increment 0.01
+ * @group CNF Control
+ */
+PARAM_DEFINE_FLOAT(MC_CNF_BETA, 10.3f);
