@@ -400,13 +400,20 @@ MulticopterAttitudeControl::control_attitude(float dt)
 	/* Initialise K_B, before rotating by R_BI */
 	Vector3f K_B = (e_Bz % e_Bz_ref).normalized();
 	R_BI.rotate(K_B);
-	
+
 	/* calculate rotating angle */
 	float rotating_angle = atan2f((e_Bz % e_Bz_ref).length() , e_Bz * e_Bz_ref);
 	/* find eB, angle to compensate for body frame x and y axis */
 	Vector3f eB = AxisAnglef(K_B, rotating_angle);
 
+	/* calculate integration of tracking error, z */
+	float int_tracking_err = 0.f;
 
+	/* Create auxiliary state matrix, x bar */
+	float data[3] = {int_tracking_err, eB(0), _v_att.rollspeed};
+	Matrix<float, 3, 1> x_bar(data);
+
+	
 	/* quaternion attitude control law, qe is rotation from q to qd */
 	Quatf qe = q.inversed() * qd;
 
