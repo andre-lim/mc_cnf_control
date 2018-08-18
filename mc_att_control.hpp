@@ -125,6 +125,11 @@ private:
 	 */
 	matrix::Vector3f pid_attenuations(float tpa_breakpoint, float tpa_rate);
 
+	/**
+	 * CNF Attitude controller.
+	 */
+	void		control_cnf_attitude(float dt);
+
 
 	int		_v_att_sub{-1};			/**< vehicle attitude subscription */
 	int		_v_att_sp_sub{-1};		/**< vehicle attitude setpoint subscription */

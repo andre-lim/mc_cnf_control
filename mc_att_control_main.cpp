@@ -381,6 +381,12 @@ MulticopterAttitudeControl::control_attitude(float dt)
 	vehicle_attitude_setpoint_poll();
 	_thrust_sp = _v_att_sp.thrust;
 
+	/* prepare yaw weight from the ratio between roll/pitch and yaw gains */
+	Vector3f attitude_gain = _attitude_p;
+	const float roll_pitch_gain = (attitude_gain(0) + attitude_gain(1)) / 2.f;
+	const float yaw_w = math::constrain(attitude_gain(2) / roll_pitch_gain, 0.f, 1.f);
+	attitude_gain(2) = roll_pitch_gain;
+
 	/* get estimated and desired vehicle attitude */
 	Quatf q(_v_att.q);
 	Quatf qd(_v_att_sp.q_d);
@@ -389,31 +395,30 @@ MulticopterAttitudeControl::control_attitude(float dt)
 	q.normalize();
 	qd.normalize();
 
+	/* calculate reduced desired attitude neglecting vehicle's yaw to prioritize roll and pitch */
+	Vector3f e_z = q.dcm_z();
+	Vector3f e_z_d = qd.dcm_z();
+	Quatf qd_red(e_z, e_z_d);
 
-	/* find current and desired z-vector in world frame */
-	Vector3f e_Bz = q.dcm_z();
-	Vector3f e_Bz_ref = qd.dcm_z();
+	if (abs(qd_red(1)) > (1.f - 1e-5f) || abs(qd_red(2)) > (1.f - 1e-5f)) {
+		/* In the infinitesimal corner case where the vehicle and thrust have the completely opposite direction,
+		 * full attitude control anyways generates no yaw input and directly takes the combination of
+		 * roll and pitch leading to the correct desired yaw. Ignoring this case would still be totally safe and stable. */
+		qd_red = qd;
 
-	/* Calculate K_B, the normal vector in body frame */
-	/* Rotation of world into body frame is equivalent to inverse of current attitude quaternion */
-	Quatf R_BI  = q.inversed();
-	/* Initialise K_B, before rotating by R_BI */
-	Vector3f K_B = (e_Bz % e_Bz_ref).normalized();
-	R_BI.rotate(K_B);
+	} else {
+		/* transform rotation from current to desired thrust vector into a world frame reduced desired attitude */
+		qd_red *= q;
+	}
 
-	/* calculate rotating angle */
-	float rotating_angle = atan2f((e_Bz % e_Bz_ref).length() , e_Bz * e_Bz_ref);
-	/* find eB, angle to compensate for body frame x and y axis */
-	Vector3f eB = AxisAnglef(K_B, rotating_angle);
+	/* mix full and reduced desired attitude */
+	Quatf q_mix = qd_red.inversed() * qd;
+	q_mix *= math::signNoZero(q_mix(0));
+	/* catch numerical problems with the domain of acosf and asinf */
+	q_mix(0) = math::constrain(q_mix(0), -1.f, 1.f);
+	q_mix(3) = math::constrain(q_mix(3), -1.f, 1.f);
+	qd = qd_red * Quatf(cosf(yaw_w * acosf(q_mix(0))), 0, 0, sinf(yaw_w * asinf(q_mix(3))));
 
-	/* calculate integration of tracking error, z */
-	float int_tracking_err = 0.f;
-
-	/* Create auxiliary state matrix, x bar */
-	float data[3] = {int_tracking_err, eB(0), _v_att.rollspeed};
-	Matrix<float, 3, 1> x_bar(data);
-
-	
 	/* quaternion attitude control law, qe is rotation from q to qd */
 	Quatf qe = q.inversed() * qd;
 
@@ -588,6 +593,49 @@ MulticopterAttitudeControl::control_attitude_rates(float dt)
 		_rates_int(i) = math::constrain(_rates_int(i), -_rate_int_lim(i), _rate_int_lim(i));
 
 	}
+}
+
+/*
+ * Composite Nonlinear Feedback Attitude controller.
+ * Input: 'vehicle_attitude_setpoint' topic
+ * Output: '_att_control' vector
+ */
+void
+MulticopterAttitudeControl::control_cnf_attitude(float dt)
+{
+	vehicle_attitude_setpoint_poll();
+	_thrust_sp = _v_att_sp.thrust;
+
+	/* get estimated and desired vehicle attitude */
+	Quatf q(_v_att.q);
+	Quatf qd(_v_att_sp.q_d);
+
+	/* ensure input quaternions are exactly normalized because acosf(1.00001) == NaN */
+	q.normalize();
+	qd.normalize();
+
+	/* find current and desired z-vector in world frame */
+	Vector3f e_Bz = q.dcm_z();
+	Vector3f e_Bz_ref = qd.dcm_z();
+
+	/* Calculate K_B, the normal vector in body frame */
+	/* Rotation of world into body frame is equivalent to inverse of current attitude quaternion */
+	Quatf R_BI  = q.inversed();
+	/* Initialise K_B, before rotating by R_BI */
+	Vector3f K_B = (e_Bz % e_Bz_ref).normalized();
+	R_BI.rotate(K_B);
+
+	/* calculate rotating angle */
+	float rotating_angle = atan2f((e_Bz % e_Bz_ref).length() , e_Bz * e_Bz_ref);
+	/* find eB, angle to compensate for body frame x and y axis */
+	Vector3f eB = AxisAnglef(K_B, rotating_angle);
+
+	/* calculate integration of tracking error, z */
+	float int_tracking_err = 0.f;
+
+	/* Create auxiliary state matrix, x bar */
+	float data[3] = {int_tracking_err, eB(0), _v_att.rollspeed};
+	Matrix<float, 3, 1> x_bar(data);
 }
 
 void
