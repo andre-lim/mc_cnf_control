@@ -577,3 +577,12 @@ PARAM_DEFINE_FLOAT(MC_DTERM_CUTOFF, 30.f);
  */
 PARAM_DEFINE_INT32(MC_AIRMODE, 0);
 
+/**
+ * Composite Nonlinear Feedback
+ * 
+ * Enables CNF control to replace the quaternion based attitude control
+ * 
+ * @boolean
+ * @group CNF Control
+ */
+PARAM_DEFINE_INT32(MC_CNF_ENABLE, 1);

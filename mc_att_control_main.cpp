@@ -728,45 +728,26 @@ MulticopterAttitudeControl::run()
 			sensor_correction_poll();
 			sensor_bias_poll();
 			vehicle_land_detected_poll();
+			
+			if (_cnf_enabled) {
 
-			/* Check if we are in rattitude mode and the pilot is above the threshold on pitch
-			 * or roll (yaw can rotate 360 in normal att control).  If both are true don't
-			 * even bother running the attitude controllers */
-			if (_v_control_mode.flag_control_rattitude_enabled) {
-				if (fabsf(_manual_control_sp.y) > _rattitude_thres.get() ||
-				    fabsf(_manual_control_sp.x) > _rattitude_thres.get()) {
-					_v_control_mode.flag_control_attitude_enabled = false;
-				}
-			}
-
-			if (_v_control_mode.flag_control_attitude_enabled) {
-
-				control_attitude(dt);
-
-				/* publish attitude rates setpoint */
-				_v_rates_sp.roll = _rates_sp(0);
-				_v_rates_sp.pitch = _rates_sp(1);
-				_v_rates_sp.yaw = _rates_sp(2);
-				_v_rates_sp.thrust = _thrust_sp;
-				_v_rates_sp.timestamp = hrt_absolute_time();
-
-				if (_v_rates_sp_pub != nullptr) {
-					orb_publish(_rates_sp_id, _v_rates_sp_pub, &_v_rates_sp);
-
-				} else if (_rates_sp_id) {
-					_v_rates_sp_pub = orb_advertise(_rates_sp_id, &_v_rates_sp);
-				}
+				control_cnf_attitude(dt);
 
 			} else {
-				/* attitude controller disabled, poll rates setpoint topic */
-				if (_v_control_mode.flag_control_manual_enabled) {
-					/* manual rates control - ACRO mode */
-					Vector3f man_rate_sp(
-							math::superexpo(_manual_control_sp.y, _acro_expo_rp.get(), _acro_superexpo_rp.get()),
-							math::superexpo(-_manual_control_sp.x, _acro_expo_rp.get(), _acro_superexpo_rp.get()),
-							math::superexpo(_manual_control_sp.r, _acro_expo_y.get(), _acro_superexpo_y.get()));
-					_rates_sp = man_rate_sp.emult(_acro_rate_max);
-					_thrust_sp = _manual_control_sp.z;
+				
+				/* Check if we are in rattitude mode and the pilot is above the threshold on pitch
+				* or roll (yaw can rotate 360 in normal att control).  If both are true don't
+				* even bother running the attitude controllers */
+				if (_v_control_mode.flag_control_rattitude_enabled) {
+					if (fabsf(_manual_control_sp.y) > _rattitude_thres.get() ||
+						fabsf(_manual_control_sp.x) > _rattitude_thres.get()) {
+						_v_control_mode.flag_control_attitude_enabled = false;
+					}
+				}
+
+				if (_v_control_mode.flag_control_attitude_enabled) {
+
+					control_attitude(dt);
 
 					/* publish attitude rates setpoint */
 					_v_rates_sp.roll = _rates_sp(0);
@@ -784,16 +765,44 @@ MulticopterAttitudeControl::run()
 
 				} else {
 					/* attitude controller disabled, poll rates setpoint topic */
-					vehicle_rates_setpoint_poll();
-					_rates_sp(0) = _v_rates_sp.roll;
-					_rates_sp(1) = _v_rates_sp.pitch;
-					_rates_sp(2) = _v_rates_sp.yaw;
-					_thrust_sp = _v_rates_sp.thrust;
+					if (_v_control_mode.flag_control_manual_enabled) {
+						/* manual rates control - ACRO mode */
+						Vector3f man_rate_sp(
+								math::superexpo(_manual_control_sp.y, _acro_expo_rp.get(), _acro_superexpo_rp.get()),
+								math::superexpo(-_manual_control_sp.x, _acro_expo_rp.get(), _acro_superexpo_rp.get()),
+								math::superexpo(_manual_control_sp.r, _acro_expo_y.get(), _acro_superexpo_y.get()));
+						_rates_sp = man_rate_sp.emult(_acro_rate_max);
+						_thrust_sp = _manual_control_sp.z;
+
+						/* publish attitude rates setpoint */
+						_v_rates_sp.roll = _rates_sp(0);
+						_v_rates_sp.pitch = _rates_sp(1);
+						_v_rates_sp.yaw = _rates_sp(2);
+						_v_rates_sp.thrust = _thrust_sp;
+						_v_rates_sp.timestamp = hrt_absolute_time();
+
+						if (_v_rates_sp_pub != nullptr) {
+							orb_publish(_rates_sp_id, _v_rates_sp_pub, &_v_rates_sp);
+
+						} else if (_rates_sp_id) {
+							_v_rates_sp_pub = orb_advertise(_rates_sp_id, &_v_rates_sp);
+						}
+
+					} else {
+						/* attitude controller disabled, poll rates setpoint topic */
+						vehicle_rates_setpoint_poll();
+						_rates_sp(0) = _v_rates_sp.roll;
+						_rates_sp(1) = _v_rates_sp.pitch;
+						_rates_sp(2) = _v_rates_sp.yaw;
+						_thrust_sp = _v_rates_sp.thrust;
+					}
 				}
 			}
 
 			if (_v_control_mode.flag_control_rates_enabled) {
-				control_attitude_rates(dt);
+				if (!_cnf_enabled) {
+					control_attitude_rates(dt);
+				}
 
 				/* publish actuator controls */
 				_actuators.control[0] = (PX4_ISFINITE(_att_control(0))) ? _att_control(0) : 0.0f;
