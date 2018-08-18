@@ -389,22 +389,6 @@ MulticopterAttitudeControl::control_attitude(float dt)
 	q.normalize();
 	qd.normalize();
 
-	/* calculate reduced desired attitude neglecting vehicle's yaw to prioritize roll and pitch */
-	Vector3f e_z = q.dcm_z();
-	Vector3f e_z_d = qd.dcm_z();
-	Quatf qd_red(e_z, e_z_d);
-
-	if (abs(qd_red(1)) > (1.f - 1e-5f) || abs(qd_red(2)) > (1.f - 1e-5f)) {
-		/* In the infinitesimal corner case where the vehicle and thrust have the completely opposite direction,
-		 * full attitude control anyways generates no yaw input and directly takes the combination of
-		 * roll and pitch leading to the correct desired yaw. Ignoring this case would still be totally safe and stable. */
-		qd_red = qd;
-
-	} else {
-		/* transform rotation from current to desired thrust vector into a world frame reduced desired attitude */
-		qd_red *= q;
-	}
-
 	/* mix full and reduced desired attitude */
 	Quatf q_mix = qd_red.inversed() * qd;
 	q_mix *= math::signNoZero(q_mix(0));
