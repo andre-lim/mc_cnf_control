@@ -389,6 +389,16 @@ MulticopterAttitudeControl::control_attitude(float dt)
 	q.normalize();
 	qd.normalize();
 
+	/* find current and desired z-vector in world frame */
+	Vector3f e_Bz = q * Vector3f(0,0,1) * q.inversed();
+	Vector3f e_Bz_ref = qd * Vector3f(0,0,1) * qd.inversed();
+	/* calculate Kb, the normal vector in body frame */
+	Vector3f K_B = R_BI * (e_Bz % e_Bz_ref).normalized();
+	/* calculate rotating angle */
+	float rotating_angle = atan2f((e_Bz % e_Bz_ref).length() , e_Bz * e_Bz_ref);
+	/* find eB, angle to compensate for body frame x and y axis */
+	AxisAngle eB(K_B, rotating_angle);
+
 	/* mix full and reduced desired attitude */
 	Quatf q_mix = qd_red.inversed() * qd;
 	q_mix *= math::signNoZero(q_mix(0));
