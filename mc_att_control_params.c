@@ -664,3 +664,16 @@ PARAM_DEFINE_FLOAT(MC_CNF_P2, 10.46f);
  * @group CNF Control
  */
 PARAM_DEFINE_FLOAT(MC_CNF_P3, 1.04f);
+
+/**
+ * CNF tracking error integration gain
+ * 
+ * Determines the gain of state z
+ * 
+ * @min 0.0
+ * @max 10.0
+ * @decimal 2
+ * @increment 0.01
+ * @group CNF Control
+ */
+PARAM_DEFINE_FLOAT(MC_CNF_KI, 0.1f);

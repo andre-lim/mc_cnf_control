@@ -623,20 +623,66 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 	Quatf R_BI  = q.inversed();
 	/* Initialise K_B, before rotating by R_BI */
 	Vector3f K_B = (e_Bz % e_Bz_ref).normalized();
-	R_BI.rotate(K_B);
+	R_BI.conjugate(K_B);
 
 	/* calculate rotating angle */
 	float rotating_angle = atan2f((e_Bz % e_Bz_ref).length() , e_Bz * e_Bz_ref);
+	
 	/* find eB, angle to compensate for body frame x and y axis */
 	Vector3f eB = AxisAnglef(K_B, rotating_angle);
 
-	/* calculate integration of tracking error, z */
-	float int_tracking_err = 0.f;
+	/* calculate attitude error */
+	Euler att_err = Euler(qd * q.inversed());
 
-	/* create auxiliary state matrix, x bar */
-	float data[3] = {int_tracking_err, eB(0), _v_att.rollspeed};
-	Matrix<float, 3, 1> x_bar(data);
+	/* update integral only if we are not landed */
+	if (!_vehicle_land_detected.maybe_landed && !_vehicle_land_detected.landed) {
+		for (int i = AXIS_INDEX_ROLL; i < AXIS_COUNT; i++) {
+			// Check for positive control saturation
+			bool positive_saturation =
+				((i == AXIS_INDEX_ROLL) && _saturation_status.flags.roll_pos) ||
+				((i == AXIS_INDEX_PITCH) && _saturation_status.flags.pitch_pos) ||
+				((i == AXIS_INDEX_YAW) && _saturation_status.flags.yaw_pos);
+
+			// Check for negative control saturation
+			bool negative_saturation =
+				((i == AXIS_INDEX_ROLL) && _saturation_status.flags.roll_neg) ||
+				((i == AXIS_INDEX_PITCH) && _saturation_status.flags.pitch_neg) ||
+				((i == AXIS_INDEX_YAW) && _saturation_status.flags.yaw_neg);
+
+			// prevent further positive control saturation
+			if (positive_saturation) {
+				att_err(i) = math::min(att_err(i), 0.0f);
+
+			}
+
+			// prevent further negative control saturation
+			if (negative_saturation) {
+				att_err(i) = math::max(att_err(i), 0.0f);
+
+			}
+
+			// Perform the integration using a first order method and do not propagate the result if out of range or invalid
+			float att_i = _att_int(i) + _cnf_ki * att_err(i) * dt;
+
+			if (PX4_ISFINITE(att_i)) {
+				_att_int(i) = att_i;
+
+			}
+		}
+	}
+
+	/* create auxiliary state matrices for roll and pitch */
+	float data1[3] = {_att_int(AXIS_INDEX_ROLL), eB(AXIS_INDEX_ROLL), _v_att.rollspeed};
+	Matrix<float, 3, 1> roll_state(data);
+	float data2[3] = {pitch_z(AXIS_INDEX_PITCH), eB(AXIS_INDEX_PITCH), _v_att.pitchspeed};
+	Matrix<float, 3, 1> pitch_state(data);
 	
+	/* linear law */
+
+	/* nonlinear law */
+
+	/* final combined output */
+
 }
 
 void

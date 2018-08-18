@@ -182,6 +182,7 @@ private:
 	matrix::Vector3f _rates_prev_filtered;		/**< angular rates on previous step (low-pass filtered) */
 	matrix::Vector3f _rates_sp;			/**< angular rates setpoint */
 	matrix::Vector3f _rates_int;			/**< angular rates integral error */
+	matrix::Vector3f _att_int;			/**< attitude integral error */
 	float _thrust_sp;				/**< thrust setpoint */
 	matrix::Vector3f _att_control;			/**< attitude control vector */
 
@@ -252,6 +253,8 @@ private:
 		(ParamInt<px4::params::MC_CNF_P1>) _cnf_p1,
 		(ParamInt<px4::params::MC_CNF_P2>) _cnf_p2,
 		(ParamInt<px4::params::MC_CNF_P3>) _cnf_p3
+
+		(ParamInt<px4::params::MC_CNF_KI>) _cnf_ki
 	)
 
 	matrix::Vector3f _attitude_p;		/**< P gain for attitude control */
