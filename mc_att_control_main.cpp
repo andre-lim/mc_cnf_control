@@ -682,11 +682,12 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 			}
 		}
 	}
+	/* Should the integral be zeroed on landing? */
 
 	/* create auxiliary state matrices for roll and pitch */
 	float data1[3] = {_att_int(AXIS_INDEX_ROLL), eB(AXIS_INDEX_ROLL), _v_att.rollspeed};
 	Matrix<float, 3, 1> roll_state(data);
-	float data2[3] = {pitch_z(AXIS_INDEX_PITCH), eB(AXIS_INDEX_PITCH), _v_att.pitchspeed};
+	float data2[3] = {_att_int(AXIS_INDEX_PITCH), eB(AXIS_INDEX_PITCH), _v_att.pitchspeed};
 	Matrix<float, 3, 1> pitch_state(data);
 
 	/* final combined output */
@@ -694,8 +695,8 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 	float output_pitch = F * pitch_state + cnf_nonlinear_f(att_err(1)) * P * pitch_state;
 
 	/* copy output to _att_control to publish actuator_controls message */
-	_att_control(0) = output_roll;
-	_att_control(1) = output_pitch;
+	_att_control(AXIS_INDEX_ROLL) = output_roll;
+	_att_control(AXIS_INDEX_PITCH) = output_pitch;
 	
 }
 
