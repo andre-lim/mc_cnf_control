@@ -716,6 +716,8 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 	_att_control(AXIS_INDEX_ROLL) = output_roll;
 	_att_control(AXIS_INDEX_PITCH) = output_pitch;
 	
+	/* compensate thrust for tilt angle */
+	_thrust_sp /= cosf(rotating_angle);
 }
 
 void
