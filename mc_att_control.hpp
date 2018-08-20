@@ -126,6 +126,11 @@ private:
 	matrix::Vector3f pid_attenuations(float tpa_breakpoint, float tpa_rate);
 
 	/**
+	 * CNF nonlinear helper function.
+	 */
+	float		cnf_nonlinear_f(float error);
+
+	/**
 	 * CNF Attitude controller.
 	 */
 	void		control_cnf_attitude(float dt);
@@ -244,19 +249,19 @@ private:
 
 		(ParamFloat<px4::params::VT_WV_YAWR_SCL>) _vtol_wv_yaw_rate_scale,		/**< Scale value [0, 1] for yaw rate setpoint  */
 
-		(ParamInt<px4::params::MC_CNF_ENABLE>) _cnf_enabled,
+		(ParamBool<px4::params::MC_CNF_ENABLE>) _cnf_p_enabled,
 
-		(ParamInt<px4::params::MC_CNF_F1>) _cnf_f1,
-		(ParamInt<px4::params::MC_CNF_F2>) _cnf_f2,
-		(ParamInt<px4::params::MC_CNF_F3>) _cnf_f3,
+		(ParamFloat<px4::params::MC_CNF_F1>) _cnf_f1,
+		(ParamFloat<px4::params::MC_CNF_F2>) _cnf_f2,
+		(ParamFloat<px4::params::MC_CNF_F3>) _cnf_f3,
 
-		(ParamInt<px4::params::MC_CNF_P1>) _cnf_p1,
-		(ParamInt<px4::params::MC_CNF_P2>) _cnf_p2,
-		(ParamInt<px4::params::MC_CNF_P3>) _cnf_p3,
+		(ParamFloat<px4::params::MC_CNF_P1>) _cnf_p1,
+		(ParamFloat<px4::params::MC_CNF_P2>) _cnf_p2,
+		(ParamFloat<px4::params::MC_CNF_P3>) _cnf_p3,
 
-		(ParamInt<px4::params::MC_CNF_KI>) _cnf_ki,
-		(ParamInt<px4::params::MC_CNF_ALPHA>) _cnf_alpha,
-		(ParamInt<px4::params::MC_CNF_BETA>) _cnf_beta,
+		(ParamFloat<px4::params::MC_CNF_KI>) _cnf_p_ki,
+		(ParamFloat<px4::params::MC_CNF_ALPHA>) _cnf_p_alpha,
+		(ParamFloat<px4::params::MC_CNF_BETA>) _cnf_p_beta
 	)
 
 	matrix::Vector3f _attitude_p;		/**< P gain for attitude control */
@@ -269,6 +274,15 @@ private:
 	matrix::Vector3f _mc_rate_max;		/**< attitude rate limits in stabilized modes */
 	matrix::Vector3f _auto_rate_max;	/**< attitude rate limits in auto modes */
 	matrix::Vector3f _acro_rate_max;	/**< max attitude rates in acro mode */
+
+	bool _cnf_enabled;
+
+	float _cnf_alpha;
+	float _cnf_beta;
+	float _cnf_ki;
+
+	matrix::Vector3f _cnf_F;
+	matrix::Vector3f _cnf_P;
 
 };
 

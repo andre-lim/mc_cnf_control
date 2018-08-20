@@ -118,6 +118,7 @@ MulticopterAttitudeControl::MulticopterAttitudeControl() :
 	_rates_prev_filtered.zero();
 	_rates_sp.zero();
 	_rates_int.zero();
+	_att_int.zero();
 	_thrust_sp = 0.0f;
 	_att_control.zero();
 
@@ -186,6 +187,24 @@ MulticopterAttitudeControl::parameters_updated()
 	_acro_rate_max(2) = math::radians(_acro_yaw_max.get());
 
 	_actuators_0_circuit_breaker_enabled = circuit_breaker_enabled("CBRK_RATE_CTRL", CBRK_RATE_CTRL_KEY);
+
+	/* get CNF enable */
+	_cnf_enabled = _cnf_p_enabled.get();
+
+	/* get CNF gains */
+	_cnf_alpha = _cnf_p_alpha.get();
+	_cnf_beta = _cnf_p_beta.get();
+	_cnf_ki = _cnf_p_ki.get();
+
+	/* get F matrices */
+	_cnf_F(0) = _cnf_f1.get();
+	_cnf_F(1) = _cnf_f2.get();
+	_cnf_F(2) = _cnf_f3.get();
+	/* get P matrices */
+	_cnf_P(0) = _cnf_p1.get();
+	_cnf_P(1) = _cnf_p2.get();
+	_cnf_P(2) = _cnf_p3.get();
+
 
 	/* get transformation matrix from sensor/board to body frame */
 	_board_rotation = get_rot_matrix((enum Rotation)_board_rotation_param.get());
@@ -603,7 +622,7 @@ MulticopterAttitudeControl::control_attitude_rates(float dt)
 float
 MulticopterAttitudeControl::cnf_nonlinear_f(float error)
 {
-	return -_cnf_beta * exp(-_cnf_alpha * abs(error));
+	return _cnf_beta * exp(_cnf_alpha * abs(error));
 }
 
 /*
@@ -631,47 +650,46 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 
 	/* Calculate K_B, the normal vector in body frame */
 	/* Rotation of world into body frame is equivalent to inverse of current attitude quaternion */
-	Quatf R_BI  = q.inversed();
+	Quatf R_BI = q.inversed();
 	/* Initialise K_B, before rotating by R_BI */
-	Vector3f K_B = (e_Bz % e_Bz_ref).normalized();
-	R_BI.conjugate(K_B);
+	Vector3f K_B = R_BI.conjugate((e_Bz % e_Bz_ref).normalized());
 
 	/* calculate rotating angle */
 	float rotating_angle = atan2f((e_Bz % e_Bz_ref).length() , e_Bz * e_Bz_ref);
 
 	/* find eB, angle to compensate for body frame x and y axis */
-	Vector3f eB = AxisAnglef(K_B, rotating_angle);
+	Vector3f eB = Euler<float>(AxisAnglef(K_B, rotating_angle));
 
 	/* calculate attitude error */
-	// CHECK if 3-2-1 intrinsic Tait-Bryan corresponds to roll-pitch-yaw
-	Euler att_err = Euler(qd * q.inversed());
+	// 3-2-1 intrinsic Tait-Bryan corresponds to yaw-pitch-roll
+	Euler<float> att_err = Euler<float>(qd * q.inversed());
 
 	/* update integral only if we are not landed */
 	if (!_vehicle_land_detected.maybe_landed && !_vehicle_land_detected.landed) {
 		for (int i = AXIS_INDEX_ROLL; i < AXIS_COUNT; i++) {
-			// Check for positive control saturation
-			bool positive_saturation =
-				((i == AXIS_INDEX_ROLL) && _saturation_status.flags.roll_pos) ||
-				((i == AXIS_INDEX_PITCH) && _saturation_status.flags.pitch_pos) ||
-				((i == AXIS_INDEX_YAW) && _saturation_status.flags.yaw_pos);
+			// // Check for positive control saturation
+			// bool positive_saturation =
+			// 	((i == AXIS_INDEX_ROLL) && _saturation_status.flags.roll_pos) ||
+			// 	((i == AXIS_INDEX_PITCH) && _saturation_status.flags.pitch_pos) ||
+			// 	((i == AXIS_INDEX_YAW) && _saturation_status.flags.yaw_pos);
 
-			// Check for negative control saturation
-			bool negative_saturation =
-				((i == AXIS_INDEX_ROLL) && _saturation_status.flags.roll_neg) ||
-				((i == AXIS_INDEX_PITCH) && _saturation_status.flags.pitch_neg) ||
-				((i == AXIS_INDEX_YAW) && _saturation_status.flags.yaw_neg);
+			// // Check for negative control saturation
+			// bool negative_saturation =
+			// 	((i == AXIS_INDEX_ROLL) && _saturation_status.flags.roll_neg) ||
+			// 	((i == AXIS_INDEX_PITCH) && _saturation_status.flags.pitch_neg) ||
+			// 	((i == AXIS_INDEX_YAW) && _saturation_status.flags.yaw_neg);
 
-			// prevent further positive control saturation
-			if (positive_saturation) {
-				att_err(i) = math::min(att_err(i), 0.0f);
+			// // prevent further positive control saturation
+			// if (positive_saturation) {
+			// 	att_err(i) = math::min(att_err(i), 0.0f);
 
-			}
+			// }
 
-			// prevent further negative control saturation
-			if (negative_saturation) {
-				att_err(i) = math::max(att_err(i), 0.0f);
+			// // prevent further negative control saturation
+			// if (negative_saturation) {
+			// 	att_err(i) = math::max(att_err(i), 0.0f);
 
-			}
+			// }
 
 			// Perform the integration using a first order method and do not propagate the result if out of range or invalid
 			float att_i = _att_int(i) + _cnf_ki * att_err(i) * dt;
@@ -685,14 +703,14 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 	/* Should the integral be zeroed on landing? */
 
 	/* create auxiliary state matrices for roll and pitch */
-	float data1[3] = {_att_int(AXIS_INDEX_ROLL), eB(AXIS_INDEX_ROLL), _v_att.rollspeed};
-	Matrix<float, 3, 1> roll_state(data);
-	float data2[3] = {_att_int(AXIS_INDEX_PITCH), eB(AXIS_INDEX_PITCH), _v_att.pitchspeed};
-	Matrix<float, 3, 1> pitch_state(data);
+	float data1[3] = {_att_int(2), eB(2), _v_att.rollspeed};
+	Matrix<float, 3, 1> roll_state(data1);
+	float data2[3] = {_att_int(1), eB(1), _v_att.pitchspeed};
+	Matrix<float, 3, 1> pitch_state(data2);
 
 	/* final combined output */
-	float output_roll = F * roll_state + cnf_nonlinear_f(att_err(0)) * P * roll_state;
-	float output_pitch = F * pitch_state + cnf_nonlinear_f(att_err(1)) * P * pitch_state;
+	float output_roll = _cnf_F * roll_state + cnf_nonlinear_f(att_err(2)) * (_cnf_P * roll_state);
+	float output_pitch = _cnf_F * pitch_state + cnf_nonlinear_f(att_err(1)) * (_cnf_P * pitch_state);
 
 	/* copy output to _att_control to publish actuator_controls message */
 	_att_control(AXIS_INDEX_ROLL) = output_roll;
@@ -912,6 +930,7 @@ MulticopterAttitudeControl::run()
 
 					_rates_sp.zero();
 					_rates_int.zero();
+					_att_int.zero();
 					_thrust_sp = 0.0f;
 					_att_control.zero();
 
