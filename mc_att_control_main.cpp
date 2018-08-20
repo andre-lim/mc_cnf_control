@@ -703,9 +703,9 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 	/* Should the integral be zeroed on landing? */
 
 	/* create auxiliary state matrices for roll and pitch */
-	float data1[3] = {_att_int(AXIS_INDEX_ROLL), eB(AXIS_INDEX_ROLL), _v_att.rollspeed};
+	float data1[3] = {_att_int(AXIS_INDEX_ROLL), -eB(AXIS_INDEX_ROLL), _v_att.rollspeed};
 	Matrix<float, 3, 1> roll_state(data1);
-	float data2[3] = {_att_int(AXIS_INDEX_PITCH), eB(AXIS_INDEX_PITCH), _v_att.pitchspeed};
+	float data2[3] = {_att_int(AXIS_INDEX_PITCH), -eB(AXIS_INDEX_PITCH), _v_att.pitchspeed};
 	Matrix<float, 3, 1> pitch_state(data2);
 
 	/* final combined output */
