@@ -667,29 +667,29 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 	/* update integral only if we are not landed */
 	if (!_vehicle_land_detected.maybe_landed && !_vehicle_land_detected.landed) {
 		for (int i = AXIS_INDEX_ROLL; i < AXIS_COUNT; i++) {
-			// // Check for positive control saturation
-			// bool positive_saturation =
-			// 	((i == AXIS_INDEX_ROLL) && _saturation_status.flags.roll_pos) ||
-			// 	((i == AXIS_INDEX_PITCH) && _saturation_status.flags.pitch_pos) ||
-			// 	((i == AXIS_INDEX_YAW) && _saturation_status.flags.yaw_pos);
+			// Check for positive control saturation
+			bool positive_saturation =
+				((i == AXIS_INDEX_ROLL) && _saturation_status.flags.roll_pos) ||
+				((i == AXIS_INDEX_PITCH) && _saturation_status.flags.pitch_pos) ||
+				((i == AXIS_INDEX_YAW) && _saturation_status.flags.yaw_pos);
 
-			// // Check for negative control saturation
-			// bool negative_saturation =
-			// 	((i == AXIS_INDEX_ROLL) && _saturation_status.flags.roll_neg) ||
-			// 	((i == AXIS_INDEX_PITCH) && _saturation_status.flags.pitch_neg) ||
-			// 	((i == AXIS_INDEX_YAW) && _saturation_status.flags.yaw_neg);
+			// Check for negative control saturation
+			bool negative_saturation =
+				((i == AXIS_INDEX_ROLL) && _saturation_status.flags.roll_neg) ||
+				((i == AXIS_INDEX_PITCH) && _saturation_status.flags.pitch_neg) ||
+				((i == AXIS_INDEX_YAW) && _saturation_status.flags.yaw_neg);
 
-			// // prevent further positive control saturation
-			// if (positive_saturation) {
-			// 	att_err(i) = math::min(att_err(i), 0.0f);
+			// prevent further positive control saturation
+			if (positive_saturation) {
+				att_err(i) = math::min(att_err(i), 0.0f);
 
-			// }
+			}
 
-			// // prevent further negative control saturation
-			// if (negative_saturation) {
-			// 	att_err(i) = math::max(att_err(i), 0.0f);
+			// prevent further negative control saturation
+			if (negative_saturation) {
+				att_err(i) = math::max(att_err(i), 0.0f);
 
-			// }
+			}
 
 			// Perform the integration using a first order method and do not propagate the result if out of range or invalid
 			float att_i = _att_int(i) + _cnf_ki * att_err(i) * dt;
