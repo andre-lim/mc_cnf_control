@@ -261,7 +261,11 @@ private:
 
 		(ParamFloat<px4::params::MC_CNF_KI>) _cnf_p_ki,
 		(ParamFloat<px4::params::MC_CNF_ALPHA>) _cnf_p_alpha,
-		(ParamFloat<px4::params::MC_CNF_BETA>) _cnf_p_beta
+		(ParamFloat<px4::params::MC_CNF_BETA>) _cnf_p_beta,
+
+		(ParamFloat<px4::params::MC_CNF_JXX>) _cnf_jxx,
+		(ParamFloat<px4::params::MC_CNF_JYY>) _cnf_jyy,
+		(ParamFloat<px4::params::MC_CNF_JZZ>) _cnf_jzz
 	)
 
 	matrix::Vector3f _attitude_p;		/**< P gain for attitude control */
@@ -283,6 +287,8 @@ private:
 
 	matrix::Vector3f _cnf_F;
 	matrix::Vector3f _cnf_P;
+
+	matrix::Vector3f _cnf_J;
 
 };
 

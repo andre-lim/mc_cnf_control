@@ -205,6 +205,10 @@ MulticopterAttitudeControl::parameters_updated()
 	_cnf_P(1) = _cnf_p2.get();
 	_cnf_P(2) = _cnf_p3.get();
 
+	/* get moment of inertia */
+	_cnf_J(0) = _cnf_jxx.get();
+	_cnf_J(1) = _cnf_jyy.get();
+	_cnf_J(2) = _cnf_jzz.get();
 
 	/* get transformation matrix from sensor/board to body frame */
 	_board_rotation = get_rot_matrix((enum Rotation)_board_rotation_param.get());
@@ -633,6 +637,38 @@ MulticopterAttitudeControl::cnf_nonlinear_f(float error)
 void
 MulticopterAttitudeControl::control_cnf_attitude(float dt)
 {
+	// get the raw gyro data and correct for thermal errors
+	Vector3f rates;
+
+	if (_selected_gyro == 0) {
+		rates(0) = (_sensor_gyro.x - _sensor_correction.gyro_offset_0[0]) * _sensor_correction.gyro_scale_0[0];
+		rates(1) = (_sensor_gyro.y - _sensor_correction.gyro_offset_0[1]) * _sensor_correction.gyro_scale_0[1];
+		rates(2) = (_sensor_gyro.z - _sensor_correction.gyro_offset_0[2]) * _sensor_correction.gyro_scale_0[2];
+
+	} else if (_selected_gyro == 1) {
+		rates(0) = (_sensor_gyro.x - _sensor_correction.gyro_offset_1[0]) * _sensor_correction.gyro_scale_1[0];
+		rates(1) = (_sensor_gyro.y - _sensor_correction.gyro_offset_1[1]) * _sensor_correction.gyro_scale_1[1];
+		rates(2) = (_sensor_gyro.z - _sensor_correction.gyro_offset_1[2]) * _sensor_correction.gyro_scale_1[2];
+
+	} else if (_selected_gyro == 2) {
+		rates(0) = (_sensor_gyro.x - _sensor_correction.gyro_offset_2[0]) * _sensor_correction.gyro_scale_2[0];
+		rates(1) = (_sensor_gyro.y - _sensor_correction.gyro_offset_2[1]) * _sensor_correction.gyro_scale_2[1];
+		rates(2) = (_sensor_gyro.z - _sensor_correction.gyro_offset_2[2]) * _sensor_correction.gyro_scale_2[2];
+
+	} else {
+		rates(0) = _sensor_gyro.x;
+		rates(1) = _sensor_gyro.y;
+		rates(2) = _sensor_gyro.z;
+	}
+
+	// rotate corrected measurements from sensor to body frame
+	rates = _board_rotation * rates;
+
+	// correct for in-run bias errors
+	rates(0) -= _sensor_bias.gyro_x_bias;
+	rates(1) -= _sensor_bias.gyro_y_bias;
+	rates(2) -= _sensor_bias.gyro_z_bias;
+
 	vehicle_attitude_setpoint_poll();
 	_thrust_sp = _v_att_sp.thrust;
 
@@ -709,8 +745,12 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 	Matrix<float, 3, 1> pitch_state(data2);
 
 	/* final combined output */
-	float output_roll = _cnf_F * roll_state + cnf_nonlinear_f(att_err(AXIS_INDEX_ROLL)) * (_cnf_P * roll_state);
-	float output_pitch = _cnf_F * pitch_state + cnf_nonlinear_f(att_err(AXIS_INDEX_PITCH)) * (_cnf_P * pitch_state);
+	float output_roll = _cnf_F * roll_state + cnf_nonlinear_f(att_err(AXIS_INDEX_ROLL))
+						 * (_cnf_P * roll_state) * _cnf_J(0)
+						 - (_cnf_J(1)-_cnf_J(2)) * rates(1) * rates(2);
+	float output_pitch = _cnf_F * pitch_state + cnf_nonlinear_f(att_err(AXIS_INDEX_PITCH))
+						 * (_cnf_P * pitch_state) * _cnf_J(1)
+						 - (_cnf_J(0)-_cnf_J(2)) * rates(0) * rates(2);;
 
 	/* copy output to _att_control to publish actuator_controls message */
 	_att_control(AXIS_INDEX_ROLL) = output_roll;
