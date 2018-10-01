@@ -555,9 +555,9 @@ MulticopterAttitudeControl::control_attitude_rates(float dt)
 		_lp_filters_d[2].apply(rates(2)));
 
 	_att_control = rates_p_scaled.emult(rates_err) +
-		       _rates_int -
-		       rates_d_scaled.emult(rates_filtered - _rates_prev_filtered) / dt +
-		       _rate_ff.emult(_rates_sp);
+				_rates_int -
+				rates_d_scaled.emult(rates_filtered - _rates_prev_filtered) / dt +
+				_rate_ff.emult(_rates_sp);
 
 	_rates_prev = rates;
 	_rates_prev_filtered = rates_filtered;
@@ -1027,11 +1027,11 @@ MulticopterAttitudeControl::run()
 int MulticopterAttitudeControl::task_spawn(int argc, char *argv[])
 {
 	_task_id = px4_task_spawn_cmd("mc_att_control",
-					   SCHED_DEFAULT,
-					   SCHED_PRIORITY_ATTITUDE_CONTROL,
-					   1700,
-					   (px4_main_t)&run_trampoline,
-					   (char *const *)argv);
+						SCHED_DEFAULT,
+						SCHED_PRIORITY_ATTITUDE_CONTROL,
+						1700,
+						(px4_main_t)&run_trampoline,
+					   	(char *const *)argv);
 
 	if (_task_id < 0) {
 		_task_id = -1;
