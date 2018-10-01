@@ -798,7 +798,7 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 	}
 
 	Vector3f rates_p_scaled = _rate_p.emult(pid_attenuations(_tpa_breakpoint_p.get(), _tpa_rate_p.get()));
-	Vector3f rates_d_scaled = _rate_d.emult(pid_attenuations(_tpa_breakpoint_d.get(), _tpa_rate_d.get()));
+	// Vector3f rates_d_scaled = _rate_d.emult(pid_attenuations(_tpa_breakpoint_d.get(), _tpa_rate_d.get()));
 
 	/* angular rates error */
 	float yaw_rate_err = yaw_rate_sp - rates(2);
@@ -807,11 +807,10 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 	float _yaw_rate_filtered = _lp_filters_d[2].apply(rates(2));
 
 	/* run cascaded PID control for yaw */
-	_att_control(AXIS_INDEX_YAW) = rates_p_scaled(2) * yaw_rate_err +
-									_rates_int(2) -
-									rates_d_scaled(2) * (_yaw_rate_filtered - _rates_prev_filtered(2)) / dt +
-									_rate_ff(2) * yaw_rate_sp;
-	
+	_att_control(AXIS_INDEX_YAW) = rates_p_scaled(2) * yaw_rate_err + _rates_int(2)
+								// - rates_d_scaled(2) * (_yaw_rate_filtered - _rates_prev_filtered(2)) / dt
+								+ _rate_ff(2) * yaw_rate_sp;
+	// _att_control(AXIS_INDEX_YAW) = 0;
 	_rates_prev_filtered(2) = _yaw_rate_filtered;
 	// TODO end
 
