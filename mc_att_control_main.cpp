@@ -738,14 +738,89 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 						 - (_cnf_J(1)-_cnf_J(2)) * rates(1) * rates(2);
 	float output_pitch = _cnf_F * pitch_state + cnf_nonlinear_f(att_err(AXIS_INDEX_PITCH))
 						 * (_cnf_P * pitch_state) * _cnf_J(1)
-						 - (_cnf_J(0)-_cnf_J(2)) * rates(0) * rates(2);;
+						 - (_cnf_J(0)-_cnf_J(2)) * rates(0) * rates(2);
+
+	// TODO Sort out yaw angle and rate controller
+	/* prepare yaw weight from the ratio between roll/pitch and yaw gains */
+	Vector3f attitude_gain = _attitude_p;
+	const float roll_pitch_gain = (attitude_gain(0) + attitude_gain(1)) / 2.f;
+	const float yaw_w = math::constrain(attitude_gain(2) / roll_pitch_gain, 0.f, 1.f);
+
+	/* calculate reduced desired attitude neglecting vehicle's yaw to prioritize roll and pitch */
+	Quatf qd_red(e_Bz, e_Bz_ref);
+
+	if (abs(qd_red(1)) > (1.f - 1e-5f) || abs(qd_red(2)) > (1.f - 1e-5f)) {
+		/* In the infinitesimal corner case where the vehicle and thrust have the completely opposite direction,
+		 * full attitude control anyways generates no yaw input and directly takes the combination of
+		 * roll and pitch leading to the correct desired yaw. Ignoring this case would still be totally safe and stable. */
+		qd_red = qd;
+
+	} else {
+		/* transform rotation from current to desired thrust vector into a world frame reduced desired attitude */
+		qd_red *= q;
+	}
+
+	/* mix full and reduced desired attitude */
+	Quatf q_mix = qd_red.inversed() * qd;
+	q_mix *= math::signNoZero(q_mix(0));
+	/* catch numerical problems with the domain of acosf and asinf */
+	q_mix(0) = math::constrain(q_mix(0), -1.f, 1.f);
+	q_mix(3) = math::constrain(q_mix(3), -1.f, 1.f);
+	qd = qd_red * Quatf(cosf(yaw_w * acosf(q_mix(0))), 0, 0, sinf(yaw_w * asinf(q_mix(3))));
+
+	/* quaternion attitude control law, qe is rotation from q to qd */
+	Quatf qe = q.inversed() * qd;
+
+	/* using sin(alpha/2) scaled rotation axis as attitude error (see quaternion definition by axis angle)
+	 * also taking care of the antipodal unit quaternion ambiguity */
+	Vector3f eq = 2.f * math::signNoZero(qe(0)) * qe.imag();
+
+	/* calculate angular rates setpoint */
+	float yaw_rate_sp = eq(2) * attitude_gain(2);
+
+	/* Feed forward the yaw setpoint rate.
+	 * yaw_sp_move_rate is the feed forward commanded rotation around the world z-axis,
+	 * but we need to apply it in the body frame (because _rates_sp is expressed in the body frame).
+	 * Therefore we infer the world z-axis (expressed in the body frame) by taking the last column of R.transposed (== q.inversed)
+	 * and multiply it by the yaw setpoint rate (yaw_sp_move_rate).
+	 * This yields a vector representing the commanded rotatation around the world z-axis expressed in the body frame
+	 * such that it can be added to the rates setpoint.
+	 */
+	yaw_rate_sp += (q.inversed().dcm_z() * _v_att_sp.yaw_sp_move_rate)(2);
+
+
+	/* limit rates */
+	if ((_v_control_mode.flag_control_velocity_enabled || _v_control_mode.flag_control_auto_enabled) &&
+		!_v_control_mode.flag_control_manual_enabled) {
+		yaw_rate_sp = math::constrain(yaw_rate_sp, -_auto_rate_max(2), _auto_rate_max(2));
+	} else {
+		yaw_rate_sp = math::constrain(yaw_rate_sp, -_mc_rate_max(2), _mc_rate_max(2));
+	}
+
+	Vector3f rates_p_scaled = _rate_p.emult(pid_attenuations(_tpa_breakpoint_p.get(), _tpa_rate_p.get()));
+	Vector3f rates_d_scaled = _rate_d.emult(pid_attenuations(_tpa_breakpoint_d.get(), _tpa_rate_d.get()));
+
+	/* angular rates error */
+	float yaw_rate_err = yaw_rate_sp - rates(2);
+
+	/* apply low-pass filtering to the rates for D-term */
+	float _yaw_rate_filtered = _lp_filters_d[2].apply(rates(2));
+
+	/* run cascaded PID control for yaw */
+	_att_control(AXIS_INDEX_YAW) = rates_p_scaled(2) * yaw_rate_err +
+									_rates_int(2) -
+									rates_d_scaled(2) * (_yaw_rate_filtered - _rates_prev_filtered(2)) / dt +
+									_rate_ff(2) * yaw_rate_sp;
+	
+	_rates_prev_filtered(2) = _yaw_rate_filtered;
+	// TODO end
 
 	/* copy output to _att_control to publish actuator_controls message */
 	_att_control(AXIS_INDEX_ROLL) = output_roll;
-	_att_control(AXIS_INDEX_PITCH) = output_pitch;
-	
+	_att_control(AXIS_INDEX_PITCH) = output_pitch;	
+
 	/* compensate thrust for tilt angle */
-	_thrust_sp /= cosf(rotating_angle);
+	// _thrust_sp /= cosf(rotating_angle);
 }
 
 void
