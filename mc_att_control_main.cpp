@@ -617,6 +617,7 @@ MulticopterAttitudeControl::cnf_nonlinear_f(float error)
 	return _cnf_beta * exp(_cnf_alpha * abs(error));
 }
 
+// ! CNF Controller
 /*
  * Composite Nonlinear Feedback Attitude controller.
  * Input: 'vehicle_attitude_setpoint' topic
@@ -668,25 +669,8 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 	q.normalize();
 	qd.normalize();
 
-	/* find current and desired z-vector in world frame */
-	Vector3f e_Bz = q.dcm_z();
-	Vector3f e_Bz_ref = qd.dcm_z();
-
-	/* Calculate K_B, the normal vector in body frame */
-	/* Rotation of world into body frame is equivalent to inverse of current attitude quaternion */
-	Quatf R_BI = q.inversed();
-	/* Initialise K_B, before rotating by R_BI */
-	Vector3f K_B = R_BI.conjugate((e_Bz % e_Bz_ref).normalized());
-
-	/* calculate rotating angle */
-	float rotating_angle = atan2f((e_Bz % e_Bz_ref).length() , e_Bz * e_Bz_ref);
-
-	/* find eB, angle to compensate for body frame x and y axis */
-	Vector3f eB = Euler<float>(AxisAnglef(K_B, rotating_angle));
-
 	/* calculate attitude error */
-	// 3-2-1 intrinsic Tait-Bryan corresponds to roll-pitch-yaw
-	Euler<float> att_err = Euler<float>(qd * q.inversed());
+	Vector3f att_err = AxisAnglef(qd * q.inversed());
 
 	/* update integral only if we are not landed */
 	if (!_vehicle_land_detected.maybe_landed && !_vehicle_land_detected.landed) {
@@ -727,9 +711,9 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 	/* Should the integral be zeroed on landing? */
 
 	/* create auxiliary state matrices for roll and pitch */
-	float data1[3] = {_att_int(AXIS_INDEX_ROLL), -eB(AXIS_INDEX_ROLL), _v_att.rollspeed};
+	float data1[3] = {_att_int(AXIS_INDEX_ROLL), -att_err(AXIS_INDEX_ROLL), _v_att.rollspeed};
 	Matrix<float, 3, 1> roll_state(data1);
-	float data2[3] = {_att_int(AXIS_INDEX_PITCH), -eB(AXIS_INDEX_PITCH), _v_att.pitchspeed};
+	float data2[3] = {_att_int(AXIS_INDEX_PITCH), -att_err(AXIS_INDEX_PITCH), _v_att.pitchspeed};
 	Matrix<float, 3, 1> pitch_state(data2);
 
 	/* final combined output */
@@ -739,49 +723,6 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 	float output_pitch = _cnf_F * pitch_state + cnf_nonlinear_f(att_err(AXIS_INDEX_PITCH))
 						 * (_cnf_P * pitch_state) * _cnf_J(1)
 						 - (_cnf_J(0)-_cnf_J(2)) * rates(0) * rates(2);
-
-	// TODO Sort out yaw angle and rate controller
-	/* prepare yaw weight from the ratio between roll/pitch and yaw gains */
-	Vector3f attitude_gain = _attitude_p;
-
-	/* calculate angular rates setpoint */
-	float yaw_rate_sp = eB(2) * attitude_gain(2);
-
-	/* Feed forward the yaw setpoint rate.
-	 * yaw_sp_move_rate is the feed forward commanded rotation around the world z-axis,
-	 * but we need to apply it in the body frame (because _rates_sp is expressed in the body frame).
-	 * Therefore we infer the world z-axis (expressed in the body frame) by taking the last column of R.transposed (== q.inversed)
-	 * and multiply it by the yaw setpoint rate (yaw_sp_move_rate).
-	 * This yields a vector representing the commanded rotatation around the world z-axis expressed in the body frame
-	 * such that it can be added to the rates setpoint.
-	 */
-	yaw_rate_sp += (q.inversed().dcm_z() * _v_att_sp.yaw_sp_move_rate)(2);
-
-
-	/* limit rates */
-	if ((_v_control_mode.flag_control_velocity_enabled || _v_control_mode.flag_control_auto_enabled) &&
-		!_v_control_mode.flag_control_manual_enabled) {
-		yaw_rate_sp = math::constrain(yaw_rate_sp, -_auto_rate_max(2), _auto_rate_max(2));
-	} else {
-		yaw_rate_sp = math::constrain(yaw_rate_sp, -_mc_rate_max(2), _mc_rate_max(2));
-	}
-
-	Vector3f rates_p_scaled = _rate_p.emult(pid_attenuations(_tpa_breakpoint_p.get(), _tpa_rate_p.get()));
-	// Vector3f rates_d_scaled = _rate_d.emult(pid_attenuations(_tpa_breakpoint_d.get(), _tpa_rate_d.get()));
-
-	/* angular rates error */
-	float yaw_rate_err = yaw_rate_sp - rates(2);
-
-	/* apply low-pass filtering to the rates for D-term */
-	float _yaw_rate_filtered = _lp_filters_d[2].apply(rates(2));
-
-	/* run cascaded PID control for yaw */
-	_att_control(AXIS_INDEX_YAW) = rates_p_scaled(2) * yaw_rate_err + _rates_int(2)
-								// - rates_d_scaled(2) * (_yaw_rate_filtered - _rates_prev_filtered(2)) / dt
-								+ _rate_ff(2) * yaw_rate_sp;
-	// _att_control(AXIS_INDEX_YAW) = 0;
-	_rates_prev_filtered(2) = _yaw_rate_filtered;
-	// TODO end
 
 	/* copy output to _att_control to publish actuator_controls message */
 	_att_control(AXIS_INDEX_ROLL) = output_roll;
