@@ -738,14 +738,57 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 						 - (_cnf_J(1)-_cnf_J(2)) * rates(1) * rates(2);
 	float output_pitch = _cnf_F * pitch_state + cnf_nonlinear_f(att_err(AXIS_INDEX_PITCH))
 						 * (_cnf_P * pitch_state) * _cnf_J(1)
-						 - (_cnf_J(0)-_cnf_J(2)) * rates(0) * rates(2);;
+						 - (_cnf_J(0)-_cnf_J(2)) * rates(0) * rates(2);
+
+	// TODO Sort out yaw angle and rate controller
+	/* prepare yaw weight from the ratio between roll/pitch and yaw gains */
+	Vector3f attitude_gain = _attitude_p;
+
+	/* calculate angular rates setpoint */
+	float yaw_rate_sp = eB(2) * attitude_gain(2);
+
+	/* Feed forward the yaw setpoint rate.
+	 * yaw_sp_move_rate is the feed forward commanded rotation around the world z-axis,
+	 * but we need to apply it in the body frame (because _rates_sp is expressed in the body frame).
+	 * Therefore we infer the world z-axis (expressed in the body frame) by taking the last column of R.transposed (== q.inversed)
+	 * and multiply it by the yaw setpoint rate (yaw_sp_move_rate).
+	 * This yields a vector representing the commanded rotatation around the world z-axis expressed in the body frame
+	 * such that it can be added to the rates setpoint.
+	 */
+	yaw_rate_sp += (q.inversed().dcm_z() * _v_att_sp.yaw_sp_move_rate)(2);
+
+
+	/* limit rates */
+	if ((_v_control_mode.flag_control_velocity_enabled || _v_control_mode.flag_control_auto_enabled) &&
+		!_v_control_mode.flag_control_manual_enabled) {
+		yaw_rate_sp = math::constrain(yaw_rate_sp, -_auto_rate_max(2), _auto_rate_max(2));
+	} else {
+		yaw_rate_sp = math::constrain(yaw_rate_sp, -_mc_rate_max(2), _mc_rate_max(2));
+	}
+
+	Vector3f rates_p_scaled = _rate_p.emult(pid_attenuations(_tpa_breakpoint_p.get(), _tpa_rate_p.get()));
+	// Vector3f rates_d_scaled = _rate_d.emult(pid_attenuations(_tpa_breakpoint_d.get(), _tpa_rate_d.get()));
+
+	/* angular rates error */
+	float yaw_rate_err = yaw_rate_sp - rates(2);
+
+	/* apply low-pass filtering to the rates for D-term */
+	float _yaw_rate_filtered = _lp_filters_d[2].apply(rates(2));
+
+	/* run cascaded PID control for yaw */
+	_att_control(AXIS_INDEX_YAW) = rates_p_scaled(2) * yaw_rate_err + _rates_int(2)
+								// - rates_d_scaled(2) * (_yaw_rate_filtered - _rates_prev_filtered(2)) / dt
+								+ _rate_ff(2) * yaw_rate_sp;
+	// _att_control(AXIS_INDEX_YAW) = 0;
+	_rates_prev_filtered(2) = _yaw_rate_filtered;
+	// TODO end
 
 	/* copy output to _att_control to publish actuator_controls message */
 	_att_control(AXIS_INDEX_ROLL) = output_roll;
-	_att_control(AXIS_INDEX_PITCH) = output_pitch;
-	
+	_att_control(AXIS_INDEX_PITCH) = output_pitch;	
+
 	/* compensate thrust for tilt angle */
-	_thrust_sp /= cosf(rotating_angle);
+	// _thrust_sp /= cosf(rotating_angle);
 }
 
 void
