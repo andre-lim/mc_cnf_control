@@ -672,8 +672,34 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 	/* calculate attitude error */
 	Vector3f att_err = AxisAnglef(qd * q.inversed());
 	/* mod yaw error */
-	att_err(2) = fmodf(att_err(2),  (float)M_PI);
+	// att_err(2) = fmodf(att_err(2),  (float)M_PI);
 
+	/* create auxiliary state matrices for roll and pitch */
+	float data1[3] = {_att_int(AXIS_INDEX_ROLL), -att_err(AXIS_INDEX_ROLL), _v_att.rollspeed};
+	Matrix<float, 3, 1> roll_state(data1);
+	float data2[3] = {_att_int(AXIS_INDEX_PITCH), -att_err(AXIS_INDEX_PITCH), _v_att.pitchspeed};
+	Matrix<float, 3, 1> pitch_state(data2);
+	float data3[3] = {_att_int(AXIS_INDEX_YAW), -att_err(AXIS_INDEX_YAW), _v_att.yawspeed};
+	Matrix<float, 3, 1> yaw_state(data3);
+
+	/* final combined output */
+	float output_roll = _cnf_F * roll_state + cnf_nonlinear_f(att_err(AXIS_INDEX_ROLL))
+						 * (_cnf_P * roll_state) * _cnf_J(0)
+						 - (_cnf_J(1)-_cnf_J(2)) * rates(1) * rates(2);
+	float output_pitch = _cnf_F * pitch_state + cnf_nonlinear_f(att_err(AXIS_INDEX_PITCH))
+						 * (_cnf_P * pitch_state) * _cnf_J(1)
+						 - (_cnf_J(0)-_cnf_J(2)) * rates(0) * rates(2);
+	float output_yaw = _cnf_F * yaw_state + cnf_nonlinear_f(att_err(AXIS_INDEX_YAW))
+						 * (_cnf_P * yaw_state) * _cnf_J(2);
+						//  - (_cnf_J(0)-_cnf_J(1)) * rates(0) * rates(1);
+
+	/* copy output to _att_control to publish actuator_controls message */
+	_att_control(AXIS_INDEX_ROLL) = math::constrain(output_roll/100.f, -1.0f, 1.0f);
+	_att_control(AXIS_INDEX_PITCH) = math::constrain(output_pitch/100.f, -1.0f, 1.0f);
+	_att_control(AXIS_INDEX_YAW) = math::constrain(output_yaw/500.f, -1.0f, 1.0f);
+
+	/* compensate thrust for tilt angle */
+	// _thrust_sp /= cosf(rotating_angle);
 	/* update integral only if we are not landed */
 	if (!_vehicle_land_detected.maybe_landed && !_vehicle_land_detected.landed) {
 		for (int i = AXIS_INDEX_ROLL; i < AXIS_COUNT; i++) {
@@ -711,33 +737,6 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 		}
 	}
 	/* Should the integral be zeroed on landing? */
-
-	/* create auxiliary state matrices for roll and pitch */
-	float data1[3] = {_att_int(AXIS_INDEX_ROLL), -att_err(AXIS_INDEX_ROLL), _v_att.rollspeed};
-	Matrix<float, 3, 1> roll_state(data1);
-	float data2[3] = {_att_int(AXIS_INDEX_PITCH), -att_err(AXIS_INDEX_PITCH), _v_att.pitchspeed};
-	Matrix<float, 3, 1> pitch_state(data2);
-	float data3[3] = {_att_int(AXIS_INDEX_YAW), -att_err(AXIS_INDEX_YAW), _v_att.yawspeed};
-	Matrix<float, 3, 1> yaw_state(data3);
-
-	/* final combined output */
-	float output_roll = _cnf_F * roll_state + cnf_nonlinear_f(att_err(AXIS_INDEX_ROLL))
-						 * (_cnf_P * roll_state) * _cnf_J(0)
-						 - (_cnf_J(1)-_cnf_J(2)) * rates(1) * rates(2);
-	float output_pitch = _cnf_F * pitch_state + cnf_nonlinear_f(att_err(AXIS_INDEX_PITCH))
-						 * (_cnf_P * pitch_state) * _cnf_J(1)
-						 - (_cnf_J(0)-_cnf_J(2)) * rates(0) * rates(2);
-	float output_yaw = _cnf_F * yaw_state + cnf_nonlinear_f(att_err(AXIS_INDEX_YAW))
-						 * (_cnf_P * yaw_state) * _cnf_J(1);
-						//  - (_cnf_J(0)-_cnf_J(2)) * rates(0) * rates(2);
-
-	/* copy output to _att_control to publish actuator_controls message */
-	_att_control(AXIS_INDEX_ROLL) = output_roll;
-	_att_control(AXIS_INDEX_PITCH) = output_pitch;
-	_att_control(AXIS_INDEX_YAW) = math::constrain(output_yaw, -0.01f, 0.01f);
-
-	/* compensate thrust for tilt angle */
-	// _thrust_sp /= cosf(rotating_angle);
 }
 
 void
