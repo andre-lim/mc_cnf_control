@@ -206,9 +206,9 @@ MulticopterAttitudeControl::parameters_updated()
 	_cnf_P(2) = _cnf_p3.get();
 
 	/* get moment of inertia */
-	_cnf_J(0) = _cnf_jxx.get();
-	_cnf_J(1) = _cnf_jyy.get();
-	_cnf_J(2) = _cnf_jzz.get();
+	_cnf_J(0) = _cnf_jxx.get()/1000.0f;
+	_cnf_J(1) = _cnf_jyy.get()/1000.0f;
+	_cnf_J(2) = _cnf_jzz.get()/1000.0f;
 
 	/* get transformation matrix from sensor/board to body frame */
 	_board_rotation = get_rot_matrix((enum Rotation)_board_rotation_param.get());
@@ -683,14 +683,14 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 	Matrix<float, 3, 1> yaw_state(data3);
 
 	/* final combined output */
-	float output_roll = _cnf_F * roll_state + cnf_nonlinear_f(att_err(AXIS_INDEX_ROLL))
-						 * (_cnf_P * roll_state) * _cnf_J(0)
+	float output_roll = (_cnf_F * roll_state + cnf_nonlinear_f(att_err(AXIS_INDEX_ROLL))
+						 * (_cnf_P * roll_state)) * _cnf_J(0)
 						 - (_cnf_J(1)-_cnf_J(2)) * rates(1) * rates(2);
-	float output_pitch = _cnf_F * pitch_state + cnf_nonlinear_f(att_err(AXIS_INDEX_PITCH))
-						 * (_cnf_P * pitch_state) * _cnf_J(1)
+	float output_pitch = (_cnf_F * pitch_state + cnf_nonlinear_f(att_err(AXIS_INDEX_PITCH))
+						 * (_cnf_P * pitch_state)) * _cnf_J(1)
 						 - (_cnf_J(0)-_cnf_J(2)) * rates(0) * rates(2);
-	float output_yaw = _cnf_F * yaw_state + cnf_nonlinear_f(att_err(AXIS_INDEX_YAW))
-						 * (_cnf_P * yaw_state) * _cnf_J(2);
+	float output_yaw = (_cnf_F * yaw_state + cnf_nonlinear_f(att_err(AXIS_INDEX_YAW))
+						 * (_cnf_P * yaw_state)) * _cnf_J(2);
 						//  - (_cnf_J(0)-_cnf_J(1)) * rates(0) * rates(1);
 
 	/* copy output to _att_control to publish actuator_controls message */
