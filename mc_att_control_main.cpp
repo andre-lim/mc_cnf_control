@@ -694,9 +694,9 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 						//  - (_cnf_J(0)-_cnf_J(1)) * rates(0) * rates(1);
 
 	/* copy output to _att_control to publish actuator_controls message */
-	_att_control(AXIS_INDEX_ROLL) = math::constrain(output_roll/100.f, -1.0f, 1.0f);
-	_att_control(AXIS_INDEX_PITCH) = math::constrain(output_pitch/100.f, -1.0f, 1.0f);
-	_att_control(AXIS_INDEX_YAW) = math::constrain(output_yaw/500.f, -1.0f, 1.0f);
+	_att_control(AXIS_INDEX_ROLL) = math::constrain(output_roll, -1.0f, 1.0f);
+	_att_control(AXIS_INDEX_PITCH) = math::constrain(output_pitch, -1.0f, 1.0f);
+	_att_control(AXIS_INDEX_YAW) = math::constrain(output_yaw, -1.0f, 1.0f);
 
 	/* compensate thrust for tilt angle */
 	// _thrust_sp /= cosf(rotating_angle);
