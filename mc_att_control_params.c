@@ -708,7 +708,7 @@ PARAM_DEFINE_FLOAT(MC_CNF_BETA, -10.3f);
 /**
  * CNF moment of inertia Jxx
  * 
- * Moment of inertia Jxx
+ * Moment of inertia Jxx (in g/m2)
  * 
  * @min 0.0
  * @max 10.0
@@ -716,12 +716,12 @@ PARAM_DEFINE_FLOAT(MC_CNF_BETA, -10.3f);
  * @increment 0.00001
  * @group CNF Control
  */
-PARAM_DEFINE_FLOAT(MC_CNF_JXX, 0.00072f);
+PARAM_DEFINE_FLOAT(MC_CNF_JXX, 0.72f);
 
 /**
  * CNF moment of inertia Jyy
  * 
- * Moment of inertia Jyy
+ * Moment of inertia Jyy (in g/m2)
  * 
  * @min 0.0
  * @max 10.0
@@ -729,12 +729,12 @@ PARAM_DEFINE_FLOAT(MC_CNF_JXX, 0.00072f);
  * @increment 0.00001
  * @group CNF Control
  */
-PARAM_DEFINE_FLOAT(MC_CNF_JYY, 0.00078f);
+PARAM_DEFINE_FLOAT(MC_CNF_JYY, 0.78f);
 
 /**
  * CNF moment of inertia Jzz
  * 
- * Moment of inertia Jzz
+ * Moment of inertia Jzz (in g/m2)
  * 
  * @min 0.0
  * @max 10.0
@@ -742,4 +742,4 @@ PARAM_DEFINE_FLOAT(MC_CNF_JYY, 0.00078f);
  * @increment 0.00001
  * @group CNF Control
  */
-PARAM_DEFINE_FLOAT(MC_CNF_JZZ, 0.001329f);
+PARAM_DEFINE_FLOAT(MC_CNF_JZZ, 1.329f);
