@@ -683,8 +683,6 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 	Matrix<float, 3, 1> roll_state(data1);
 	float data2[3] = {-_att_int(AXIS_INDEX_PITCH), -att_err(AXIS_INDEX_PITCH), rates(1)};
 	Matrix<float, 3, 1> pitch_state(data2);
-	float data3[3] = {-_att_int(AXIS_INDEX_YAW), -att_err(AXIS_INDEX_YAW), rates(2)};
-	Matrix<float, 3, 1> yaw_state(data3);
 
 	/* final combined output */
 	float output_roll = (_cnf_F * roll_state + cnf_nonlinear_f(att_err(AXIS_INDEX_ROLL))
@@ -693,22 +691,55 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 	float output_pitch = (_cnf_F * pitch_state + cnf_nonlinear_f(att_err(AXIS_INDEX_PITCH))
 						 * (_cnf_P * pitch_state)) * _cnf_J(1)
 						 - (_cnf_J(0)-_cnf_J(2)) * rates(0) * rates(2);
-	float output_yaw = (_cnf_F * yaw_state + cnf_nonlinear_f(att_err(AXIS_INDEX_YAW))
-						 * (_cnf_P * yaw_state)) * _cnf_J(2);
-						//  - (_cnf_J(0)-_cnf_J(1)) * rates(0) * rates(1);
 
 	/* Normalise desired [r p y] from Nm to {-1 1} by dividing by (arm length)(Max thrust) */
 	output_roll /= _cnf_d * _cnf_T0;
 	output_pitch /= _cnf_d * _cnf_T0;
-	// output_yaw /= _cnf_d * _cnf_T0;
+
+	
+	/* quaternion attitude control law, qe is rotation from q to qd */
+	Quatf qe = q.inversed() * qd;
+
+	/* Cascaded yaw controller */
+	Vector3f eq = 2.f * math::signNoZero(qe(0)) * qe.imag();
+
+	/* calculate angular rates setpoint */
+	float _yaw_rate_sp = eq(2) * _attitude_p(2);
+
+	/* Feed forward the yaw setpoint rate */
+	_yaw_rate_sp += q.inversed().dcm_z()(2) * _v_att_sp.yaw_sp_move_rate;
+
+	/* limit rates */
+	if ((_v_control_mode.flag_control_velocity_enabled || _v_control_mode.flag_control_auto_enabled) &&
+		!_v_control_mode.flag_control_manual_enabled) {
+		_yaw_rate_sp = math::constrain(_yaw_rate_sp, -_auto_rate_max(2), _auto_rate_max(2));
+	} else {
+		_yaw_rate_sp = math::constrain(_yaw_rate_sp, -_mc_rate_max(2), _mc_rate_max(2));
+	}
+
+	/* yaw angular rates error */
+	float yaw_rate_err = _yaw_rate_sp - rates(2);
+
+	/* apply low-pass filtering to the rates for D-term */
+	float yaw_rate_filtered(_lp_filters_d[2].apply(rates(2)));
+
+	Vector3f rates_p_scaled = _rate_p.emult(pid_attenuations(_tpa_breakpoint_p.get(), _tpa_rate_p.get()));
+	Vector3f rates_d_scaled = _rate_d.emult(pid_attenuations(_tpa_breakpoint_d.get(), _tpa_rate_d.get()));
+
+	float output_yaw = rates_p_scaled(2) * yaw_rate_err +
+						_rates_int(2) -
+						rates_d_scaled(2) * (yaw_rate_filtered - _yaw_rate_prev_filtered) / dt +
+						_rate_ff(2) * _yaw_rate_sp;
+
+	_rates_prev = rates;
+	_yaw_rate_prev_filtered = yaw_rate_filtered;
+
 
 	/* copy output to _att_control to publish actuator_controls message */
 	_att_control(AXIS_INDEX_ROLL) = math::constrain(output_roll, -1.0f, 1.0f);
 	_att_control(AXIS_INDEX_PITCH) = math::constrain(output_pitch, -1.0f, 1.0f);
-	_att_control(AXIS_INDEX_YAW) = math::constrain(output_yaw/500, -1.0f, 1.0f);
+	_att_control(AXIS_INDEX_YAW) = math::constrain(output_yaw, -1.0f, 1.0f);
 
-	/* compensate thrust for tilt angle */
-	// _thrust_sp /= cosf(rotating_angle);
 	/* update integral only if we are not landed */
 	if (!_vehicle_land_detected.maybe_landed && !_vehicle_land_detected.landed) {
 		for (int i = AXIS_INDEX_ROLL; i < AXIS_COUNT; i++) {
@@ -745,7 +776,6 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 			}
 		}
 	}
-	/* Should the integral be zeroed on landing? */
 }
 
 void
