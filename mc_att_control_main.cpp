@@ -210,6 +210,10 @@ MulticopterAttitudeControl::parameters_updated()
 	_cnf_J(1) = _cnf_jyy.get()/1000.0f;
 	_cnf_J(2) = _cnf_jzz.get()/1000.0f;
 
+	/* get arm length and max thrust */
+	_cnf_d = _cnf_armlength.get() / sqrtf(2);
+	_cnf_T0 = _cnf_maxthrust.get() * 2;
+
 	/* get transformation matrix from sensor/board to body frame */
 	_board_rotation = get_rot_matrix((enum Rotation)_board_rotation_param.get());
 
@@ -675,11 +679,11 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 	// att_err(2) = fmodf(att_err(2),  (float)M_PI);
 
 	/* create auxiliary state matrices for roll and pitch */
-	float data1[3] = {_att_int(AXIS_INDEX_ROLL), -att_err(AXIS_INDEX_ROLL), _v_att.rollspeed};
+	float data1[3] = {-_att_int(AXIS_INDEX_ROLL), -att_err(AXIS_INDEX_ROLL), rates(0)};
 	Matrix<float, 3, 1> roll_state(data1);
-	float data2[3] = {_att_int(AXIS_INDEX_PITCH), -att_err(AXIS_INDEX_PITCH), _v_att.pitchspeed};
+	float data2[3] = {-_att_int(AXIS_INDEX_PITCH), -att_err(AXIS_INDEX_PITCH), rates(1)};
 	Matrix<float, 3, 1> pitch_state(data2);
-	float data3[3] = {_att_int(AXIS_INDEX_YAW), -att_err(AXIS_INDEX_YAW), _v_att.yawspeed};
+	float data3[3] = {-_att_int(AXIS_INDEX_YAW), -att_err(AXIS_INDEX_YAW), rates(2)};
 	Matrix<float, 3, 1> yaw_state(data3);
 
 	/* final combined output */
@@ -693,10 +697,15 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 						 * (_cnf_P * yaw_state)) * _cnf_J(2);
 						//  - (_cnf_J(0)-_cnf_J(1)) * rates(0) * rates(1);
 
+	/* Normalise desired [r p y] from Nm to {-1 1} by dividing by (arm length)(Max thrust) */
+	output_roll /= _cnf_d * _cnf_T0;
+	output_pitch /= _cnf_d * _cnf_T0;
+	// output_yaw /= _cnf_d * _cnf_T0;
+
 	/* copy output to _att_control to publish actuator_controls message */
 	_att_control(AXIS_INDEX_ROLL) = math::constrain(output_roll, -1.0f, 1.0f);
 	_att_control(AXIS_INDEX_PITCH) = math::constrain(output_pitch, -1.0f, 1.0f);
-	_att_control(AXIS_INDEX_YAW) = math::constrain(output_yaw, -1.0f, 1.0f);
+	_att_control(AXIS_INDEX_YAW) = math::constrain(output_yaw/500, -1.0f, 1.0f);
 
 	/* compensate thrust for tilt angle */
 	// _thrust_sp /= cosf(rotating_angle);

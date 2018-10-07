@@ -598,7 +598,7 @@ PARAM_DEFINE_INT32(MC_CNF_ENABLE, 1);
  * @increment 0.01
  * @group CNF Control
  */
-PARAM_DEFINE_FLOAT(MC_CNF_F1, -19.11f);
+PARAM_DEFINE_FLOAT(MC_CNF_F1, 19.11f);
 
 /**
  * CNF F2
@@ -611,7 +611,7 @@ PARAM_DEFINE_FLOAT(MC_CNF_F1, -19.11f);
  * @increment 0.01
  * @group CNF Control
  */
-PARAM_DEFINE_FLOAT(MC_CNF_F2, -191.19f);
+PARAM_DEFINE_FLOAT(MC_CNF_F2, 191.19f);
 
 /**
  * CNF F3
@@ -624,7 +624,7 @@ PARAM_DEFINE_FLOAT(MC_CNF_F2, -191.19f);
  * @increment 0.01
  * @group CNF Control
  */
-PARAM_DEFINE_FLOAT(MC_CNF_F3, -11.07f);
+PARAM_DEFINE_FLOAT(MC_CNF_F3, 11.07f);
 
 /**
  * CNF P1
@@ -664,6 +664,32 @@ PARAM_DEFINE_FLOAT(MC_CNF_P2, 10.46f);
  * @group CNF Control
  */
 PARAM_DEFINE_FLOAT(MC_CNF_P3, 1.04f);
+
+/**
+ * Arm length
+ * 
+ * Arm length of drone (m)
+ * 
+ * @min -10.0
+ * @max 10.0
+ * @decimal 2
+ * @increment 0.01
+ * @group CNF Control
+ */
+PARAM_DEFINE_FLOAT(MC_CNF_D, 0.015f);
+
+/**
+ * Max Thrust
+ * 
+ * Maximum thrust of each motor (N)
+ * 
+ * @min -10.0
+ * @max 10.0
+ * @decimal 2
+ * @increment 0.01
+ * @group CNF Control
+ */
+PARAM_DEFINE_FLOAT(MC_CNF_T0, 2.0f);
 
 /**
  * CNF tracking error integration gain

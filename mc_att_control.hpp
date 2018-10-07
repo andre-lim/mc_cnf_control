@@ -257,6 +257,9 @@ private:
 		(ParamFloat<px4::params::MC_CNF_P2>) _cnf_p2,
 		(ParamFloat<px4::params::MC_CNF_P3>) _cnf_p3,
 
+		(ParamFloat<px4::params::MC_CNF_D>) _cnf_armlength,
+		(ParamFloat<px4::params::MC_CNF_T0>) _cnf_maxthrust,
+
 		(ParamFloat<px4::params::MC_CNF_KI>) _cnf_p_ki,
 		(ParamFloat<px4::params::MC_CNF_ALPHA>) _cnf_p_alpha,
 		(ParamFloat<px4::params::MC_CNF_BETA>) _cnf_p_beta,
@@ -285,6 +288,9 @@ private:
 
 	matrix::Vector3f _cnf_F;
 	matrix::Vector3f _cnf_P;
+
+	float _cnf_d;
+	float _cnf_T0;
 
 	matrix::Vector3f _cnf_J;
 
