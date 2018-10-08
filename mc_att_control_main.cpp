@@ -212,7 +212,7 @@ MulticopterAttitudeControl::parameters_updated()
 
 	/* get arm length and max thrust */
 	_cnf_d = _cnf_armlength.get() / sqrtf(2);
-	_cnf_T0 = _cnf_maxthrust.get() * 2;
+	_cnf_T0 = _cnf_maxthrust.get();
 
 	/* get transformation matrix from sensor/board to body frame */
 	_board_rotation = get_rot_matrix((enum Rotation)_board_rotation_param.get());
@@ -673,8 +673,10 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 	q.normalize();
 	qd.normalize();
 
-	/* calculate attitude error */
-	Vector3f att_err = AxisAnglef(qd * q.inversed());
+	/** calculate attitude error 
+	*	(A * B) applies rotation B to orientation A
+	*/
+	Vector3f att_err = AxisAnglef(q.inversed() * qd);
 	/* mod yaw error */
 	// att_err(2) = fmodf(att_err(2),  (float)M_PI);
 
@@ -690,23 +692,23 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 						 - (_cnf_J(1)-_cnf_J(2)) * rates(1) * rates(2);
 	float output_pitch = (_cnf_F * pitch_state + cnf_nonlinear_f(att_err(AXIS_INDEX_PITCH))
 						 * (_cnf_P * pitch_state)) * _cnf_J(1)
-						 - (_cnf_J(0)-_cnf_J(2)) * rates(0) * rates(2);
+						 - (_cnf_J(2)-_cnf_J(0)) * rates(0) * rates(2);
 
 	/* Normalise desired [r p y] from Nm to {-1 1} by dividing by (arm length)(Max thrust) */
 	output_roll /= _cnf_d * _cnf_T0;
 	output_pitch /= _cnf_d * _cnf_T0;
 
 	
-	/* quaternion attitude control law, qe is rotation from q to qd */
-	Quatf qe = q.inversed() * qd;
+	// /* quaternion attitude control law, qe is rotation from q to qd */
+	// Quatf qe = q.inversed() * qd;
 
-	/* Cascaded yaw controller */
-	Vector3f eq = 2.f * math::signNoZero(qe(0)) * qe.imag();
+	// /* Cascaded yaw controller */
+	// Vector3f eq = 2.f * math::signNoZero(qe(0)) * qe.imag();
 
-	/* calculate angular rates setpoint */
-	float _yaw_rate_sp = eq(2) * _attitude_p(2);
+	// ! calculate angular rates setpoint */
+	float _yaw_rate_sp = att_err(2) * _attitude_p(2);
 
-	/* Feed forward the yaw setpoint rate */
+	// ! Feed forward the yaw setpoint rate */
 	_yaw_rate_sp += q.inversed().dcm_z()(2) * _v_att_sp.yaw_sp_move_rate;
 
 	/* limit rates */
