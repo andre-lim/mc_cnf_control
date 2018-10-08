@@ -673,17 +673,44 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 	q.normalize();
 	qd.normalize();
 
-	/** calculate attitude error 
-	*	(A * B) applies rotation B to orientation A
-	*/
-	Vector3f att_err = AxisAnglef(q.inversed() * qd);
-	/* mod yaw error */
-	// att_err(2) = fmodf(att_err(2),  (float)M_PI);
+	/* calculate reduced desired attitude neglecting vehicle's yaw to prioritize roll and pitch */
+	Vector3f e_z = q.dcm_z();
+	Vector3f e_z_d = qd.dcm_z();
+	Quatf qd_red(e_z, e_z_d);
+
+	if (abs(qd_red(1)) > (1.f - 1e-5f) || abs(qd_red(2)) > (1.f - 1e-5f)) {
+		/* In the infinitesimal corner case where the vehicle and thrust have the completely opposite direction,
+		 * full attitude control anyways generates no yaw input and directly takes the combination of
+		 * roll and pitch leading to the correct desired yaw. Ignoring this case would still be totally safe and stable. */
+		qd_red = qd;
+
+	} else {
+		/* transform rotation from current to desired thrust vector into a world frame reduced desired attitude */
+		qd_red *= q;
+	}
+
+	/* Set the ratio between yaw and roll/pitch */
+	const float yaw_w = 0.1f;
+
+	/* mix full and reduced desired attitude */
+	Quatf q_mix = qd_red.inversed() * qd;
+	q_mix *= math::signNoZero(q_mix(0));
+	/* catch numerical problems with the domain of acosf and asinf */
+	q_mix(0) = math::constrain(q_mix(0), -1.f, 1.f);
+	q_mix(3) = math::constrain(q_mix(3), -1.f, 1.f);
+	qd = qd_red * Quatf(cosf(yaw_w * acosf(q_mix(0))), 0, 0, sinf(yaw_w * asinf(q_mix(3))));
+
+	/* quaternion attitude control law, qe is rotation from q to qd */
+	Quatf qe = q.inversed() * qd;
+
+	/* using sin(alpha/2) scaled rotation axis as attitude error (see quaternion definition by axis angle)
+	 * also taking care of the antipodal unit quaternion ambiguity */
+	Vector3f att_err = 2.f * math::signNoZero(qe(0)) * qe.imag();
 
 	/* create auxiliary state matrices for roll and pitch */
-	float data1[3] = {-_att_int(AXIS_INDEX_ROLL), -att_err(AXIS_INDEX_ROLL), rates(0)};
+	float data1[3] = {_att_int(AXIS_INDEX_ROLL), att_err(AXIS_INDEX_ROLL), rates(0)};
 	Matrix<float, 3, 1> roll_state(data1);
-	float data2[3] = {-_att_int(AXIS_INDEX_PITCH), -att_err(AXIS_INDEX_PITCH), rates(1)};
+	float data2[3] = {_att_int(AXIS_INDEX_PITCH), att_err(AXIS_INDEX_PITCH), rates(1)};
 	Matrix<float, 3, 1> pitch_state(data2);
 
 	/* final combined output */
@@ -698,17 +725,10 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 	output_roll /= _cnf_d * _cnf_T0;
 	output_pitch /= _cnf_d * _cnf_T0;
 
-	
-	// /* quaternion attitude control law, qe is rotation from q to qd */
-	// Quatf qe = q.inversed() * qd;
-
-	// /* Cascaded yaw controller */
-	// Vector3f eq = 2.f * math::signNoZero(qe(0)) * qe.imag();
-
-	// ! calculate angular rates setpoint */
+	/* calculate angular rates setpoint */
 	float _yaw_rate_sp = att_err(2) * _attitude_p(2);
 
-	// ! Feed forward the yaw setpoint rate */
+	/* Feed forward the yaw setpoint rate */
 	_yaw_rate_sp += q.inversed().dcm_z()(2) * _v_att_sp.yaw_sp_move_rate;
 
 	/* limit rates */
