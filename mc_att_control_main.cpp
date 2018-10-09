@@ -708,9 +708,9 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 	Vector3f att_err = 2.f * math::signNoZero(qe(0)) * qe.imag();
 
 	/* create auxiliary state matrices for roll and pitch */
-	float data1[3] = {-_cnf_ki*_att_int(AXIS_INDEX_ROLL), -att_err(AXIS_INDEX_ROLL), rates(0)};
+	float data1[3] = {_cnf_ki*_att_int(AXIS_INDEX_ROLL), -att_err(AXIS_INDEX_ROLL), rates(0)};
 	Matrix<float, 3, 1> roll_state(data1);
-	float data2[3] = {-_cnf_ki*_att_int(AXIS_INDEX_PITCH), -att_err(AXIS_INDEX_PITCH), rates(1)};
+	float data2[3] = {_cnf_ki*_att_int(AXIS_INDEX_PITCH), -att_err(AXIS_INDEX_PITCH), rates(1)};
 	Matrix<float, 3, 1> pitch_state(data2);
 
 	/* final combined output */
