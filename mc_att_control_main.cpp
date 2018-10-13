@@ -618,7 +618,7 @@ MulticopterAttitudeControl::control_attitude_rates(float dt)
 float
 MulticopterAttitudeControl::cnf_nonlinear_f(float error)
 {
-	return _cnf_beta * exp(_cnf_alpha * abs(error));
+	return _cnf_beta * expf(_cnf_alpha * abs(error));
 }
 
 // ! CNF Controller
@@ -661,6 +661,12 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 	rates(0) -= _sensor_bias.gyro_x_bias;
 	rates(1) -= _sensor_bias.gyro_y_bias;
 	rates(2) -= _sensor_bias.gyro_z_bias;
+
+	/* apply low-pass filtering to the rates for D-term */
+	Vector3f rates_filtered(
+		_lp_filters_d[0].apply(rates(0)),
+		_lp_filters_d[1].apply(rates(1)),
+		_lp_filters_d[2].apply(rates(2)));
 
 	vehicle_attitude_setpoint_poll();
 	_thrust_sp = _v_att_sp.thrust;
@@ -708,18 +714,18 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 	Vector3f att_err = 2.f * math::signNoZero(qe(0)) * qe.imag();
 
 	/* create auxiliary state matrices for roll and pitch */
-	float data1[3] = {-_cnf_ki*_att_int(AXIS_INDEX_ROLL), -att_err(AXIS_INDEX_ROLL), rates(0)};
+	float data1[3] = {-_att_int(AXIS_INDEX_ROLL), -att_err(AXIS_INDEX_ROLL), rates_filtered(0)};
 	Matrix<float, 3, 1> roll_state(data1);
-	float data2[3] = {-_cnf_ki*_att_int(AXIS_INDEX_PITCH), -att_err(AXIS_INDEX_PITCH), rates(1)};
+	float data2[3] = {-_att_int(AXIS_INDEX_PITCH), -att_err(AXIS_INDEX_PITCH), rates_filtered(1)};
 	Matrix<float, 3, 1> pitch_state(data2);
 
 	/* final combined output */
 	float output_roll = (_cnf_F * roll_state + cnf_nonlinear_f(att_err(AXIS_INDEX_ROLL))
 						 * (_cnf_P * roll_state)) * _cnf_J(0)
-						 - (_cnf_J(1)-_cnf_J(2)) * rates(1) * rates(2);
+						 - (_cnf_J(1)-_cnf_J(2)) * rates_filtered(1) * rates_filtered(2);
 	float output_pitch = (_cnf_F * pitch_state + cnf_nonlinear_f(att_err(AXIS_INDEX_PITCH))
 						 * (_cnf_P * pitch_state)) * _cnf_J(1)
-						 - (_cnf_J(2)-_cnf_J(0)) * rates(0) * rates(2);
+						 - (_cnf_J(2)-_cnf_J(0)) * rates_filtered(0) * rates_filtered(2);
 
 	/* Normalise desired [r p y] from Nm to {-1 1} by dividing by (arm length)(Max thrust) */
 	output_roll /= _cnf_d * _cnf_T0;
@@ -742,19 +748,17 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 	/* yaw angular rates error */
 	float yaw_rate_err = _yaw_rate_sp - rates(2);
 
-	/* apply low-pass filtering to the rates for D-term */
-	float yaw_rate_filtered(_lp_filters_d[2].apply(rates(2)));
 
 	Vector3f rates_p_scaled = _rate_p.emult(pid_attenuations(_tpa_breakpoint_p.get(), _tpa_rate_p.get()));
 	Vector3f rates_d_scaled = _rate_d.emult(pid_attenuations(_tpa_breakpoint_d.get(), _tpa_rate_d.get()));
 
 	float output_yaw = rates_p_scaled(2) * yaw_rate_err +
 						_rates_int(2) -
-						rates_d_scaled(2) * (yaw_rate_filtered - _yaw_rate_prev_filtered) / dt +
+						rates_d_scaled(2) * (rates_filtered(2) - _yaw_rate_prev_filtered) / dt +
 						_rate_ff(2) * _yaw_rate_sp;
 
 	_rates_prev = rates;
-	_yaw_rate_prev_filtered = yaw_rate_filtered;
+	_yaw_rate_prev_filtered = rates_filtered(2);
 
 
 	/* copy output to _att_control to publish actuator_controls message */
