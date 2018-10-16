@@ -185,6 +185,7 @@ private:
 
 	matrix::Vector3f _rates_prev;			/**< angular rates on previous step */
 	matrix::Vector3f _rates_prev_filtered;		/**< angular rates on previous step (low-pass filtered) */
+	float _yaw_rate_prev_filtered;
 	matrix::Vector3f _rates_sp;			/**< angular rates setpoint */
 	matrix::Vector3f _rates_int;			/**< angular rates integral error */
 	matrix::Vector3f _att_int;			/**< attitude integral error */

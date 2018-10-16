@@ -598,7 +598,7 @@ PARAM_DEFINE_INT32(MC_CNF_ENABLE, 1);
  * @increment 0.01
  * @group CNF Control
  */
-PARAM_DEFINE_FLOAT(MC_CNF_F1, 19.11f);
+PARAM_DEFINE_FLOAT(MC_CNF_F1, -1.47f);
 
 /**
  * CNF F2
@@ -611,7 +611,7 @@ PARAM_DEFINE_FLOAT(MC_CNF_F1, 19.11f);
  * @increment 0.01
  * @group CNF Control
  */
-PARAM_DEFINE_FLOAT(MC_CNF_F2, 191.19f);
+PARAM_DEFINE_FLOAT(MC_CNF_F2, -17.6f);
 
 /**
  * CNF F3
@@ -624,7 +624,7 @@ PARAM_DEFINE_FLOAT(MC_CNF_F2, 191.19f);
  * @increment 0.01
  * @group CNF Control
  */
-PARAM_DEFINE_FLOAT(MC_CNF_F3, 11.07f);
+PARAM_DEFINE_FLOAT(MC_CNF_F3, -4.00f);
 
 /**
  * CNF P1
@@ -633,11 +633,11 @@ PARAM_DEFINE_FLOAT(MC_CNF_F3, 11.07f);
  * 
  * @min -1000.0
  * @max 1000.0
- * @decimal 2
- * @increment 0.01
+ * @decimal 4
+ * @increment 0.0001
  * @group CNF Control
  */
-PARAM_DEFINE_FLOAT(MC_CNF_P1, 0.30f);
+PARAM_DEFINE_FLOAT(MC_CNF_P1, 0.0014f);
 
 /**
  * CNF P2
@@ -646,11 +646,11 @@ PARAM_DEFINE_FLOAT(MC_CNF_P1, 0.30f);
  * 
  * @min -1000.0
  * @max 1000.0
- * @decimal 2
- * @increment 0.01
+ * @decimal 4
+ * @increment 0.0001
  * @group CNF Control
  */
-PARAM_DEFINE_FLOAT(MC_CNF_P2, 10.46f);
+PARAM_DEFINE_FLOAT(MC_CNF_P2, 0.00f);
 
 /**
  * CNF P3
@@ -659,24 +659,24 @@ PARAM_DEFINE_FLOAT(MC_CNF_P2, 10.46f);
  * 
  * @min -1000.0
  * @max 1000.0
- * @decimal 2
- * @increment 0.01
+ * @decimal 4
+ * @increment 0.0001
  * @group CNF Control
  */
-PARAM_DEFINE_FLOAT(MC_CNF_P3, 1.04f);
+PARAM_DEFINE_FLOAT(MC_CNF_P3, -0.2424f);
 
 /**
  * Arm length
  * 
  * Arm length of drone (m)
  * 
- * @min -10.0
- * @max 10.0
- * @decimal 2
- * @increment 0.01
+ * @min -10.000
+ * @max 10.000
+ * @decimal 3
+ * @increment 0.001
  * @group CNF Control
  */
-PARAM_DEFINE_FLOAT(MC_CNF_D, 0.015f);
+PARAM_DEFINE_FLOAT(MC_CNF_D, 0.011f);
 
 /**
  * Max Thrust
@@ -689,7 +689,7 @@ PARAM_DEFINE_FLOAT(MC_CNF_D, 0.015f);
  * @increment 0.01
  * @group CNF Control
  */
-PARAM_DEFINE_FLOAT(MC_CNF_T0, 2.0f);
+PARAM_DEFINE_FLOAT(MC_CNF_T0, 1.0f);
 
 /**
  * CNF tracking error integration gain
@@ -728,7 +728,7 @@ PARAM_DEFINE_FLOAT(MC_CNF_ALPHA, -1.0f);
  * @increment 0.01
  * @group CNF Control
  */
-PARAM_DEFINE_FLOAT(MC_CNF_BETA, -10.3f);
+PARAM_DEFINE_FLOAT(MC_CNF_BETA, -8.5f);
 
 
 /**
