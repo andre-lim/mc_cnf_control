@@ -630,6 +630,11 @@ MulticopterAttitudeControl::cnf_nonlinear_f(float error)
 void
 MulticopterAttitudeControl::control_cnf_attitude(float dt)
 {
+	/* reset integral if disarmed */
+	if (!_v_control_mode.flag_armed || !_vehicle_status.is_rotary_wing) {
+		_rates_int.zero();
+	}
+
 	// get the raw gyro data and correct for thermal errors
 	Vector3f rates;
 
@@ -708,9 +713,9 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 	Vector3f att_err = 2.f * math::signNoZero(qe(0)) * qe.imag();
 
 	/* create auxiliary state matrices for roll and pitch */
-	float data1[3] = {-_cnf_ki*_att_int(AXIS_INDEX_ROLL), -att_err(AXIS_INDEX_ROLL), rates(0)};
+	float data1[3] = {-_att_int(AXIS_INDEX_ROLL), -att_err(AXIS_INDEX_ROLL), rates(0)};
 	Matrix<float, 3, 1> roll_state(data1);
-	float data2[3] = {-_cnf_ki*_att_int(AXIS_INDEX_PITCH), -att_err(AXIS_INDEX_PITCH), rates(1)};
+	float data2[3] = {-_att_int(AXIS_INDEX_PITCH), -att_err(AXIS_INDEX_PITCH), rates(1)};
 	Matrix<float, 3, 1> pitch_state(data2);
 
 	/* final combined output */
