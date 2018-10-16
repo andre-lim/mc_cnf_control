@@ -625,48 +625,11 @@ MulticopterAttitudeControl::cnf_nonlinear_f(float error)
 /*
  * Composite Nonlinear Feedback Attitude controller.
  * Input: 'vehicle_attitude_setpoint' topic
- * Output: '_att_control' vector
+ * Output: State matrix attitude error and error integral
  */
 void
 MulticopterAttitudeControl::control_cnf_attitude(float dt)
 {
-	/* reset integral if disarmed */
-	if (!_v_control_mode.flag_armed || !_vehicle_status.is_rotary_wing) {
-		_rates_int.zero();
-	}
-
-	// get the raw gyro data and correct for thermal errors
-	Vector3f rates;
-
-	if (_selected_gyro == 0) {
-		rates(0) = (_sensor_gyro.x - _sensor_correction.gyro_offset_0[0]) * _sensor_correction.gyro_scale_0[0];
-		rates(1) = (_sensor_gyro.y - _sensor_correction.gyro_offset_0[1]) * _sensor_correction.gyro_scale_0[1];
-		rates(2) = (_sensor_gyro.z - _sensor_correction.gyro_offset_0[2]) * _sensor_correction.gyro_scale_0[2];
-
-	} else if (_selected_gyro == 1) {
-		rates(0) = (_sensor_gyro.x - _sensor_correction.gyro_offset_1[0]) * _sensor_correction.gyro_scale_1[0];
-		rates(1) = (_sensor_gyro.y - _sensor_correction.gyro_offset_1[1]) * _sensor_correction.gyro_scale_1[1];
-		rates(2) = (_sensor_gyro.z - _sensor_correction.gyro_offset_1[2]) * _sensor_correction.gyro_scale_1[2];
-
-	} else if (_selected_gyro == 2) {
-		rates(0) = (_sensor_gyro.x - _sensor_correction.gyro_offset_2[0]) * _sensor_correction.gyro_scale_2[0];
-		rates(1) = (_sensor_gyro.y - _sensor_correction.gyro_offset_2[1]) * _sensor_correction.gyro_scale_2[1];
-		rates(2) = (_sensor_gyro.z - _sensor_correction.gyro_offset_2[2]) * _sensor_correction.gyro_scale_2[2];
-
-	} else {
-		rates(0) = _sensor_gyro.x;
-		rates(1) = _sensor_gyro.y;
-		rates(2) = _sensor_gyro.z;
-	}
-
-	// rotate corrected measurements from sensor to body frame
-	rates = _board_rotation * rates;
-
-	// correct for in-run bias errors
-	rates(0) -= _sensor_bias.gyro_x_bias;
-	rates(1) -= _sensor_bias.gyro_y_bias;
-	rates(2) -= _sensor_bias.gyro_z_bias;
-
 	vehicle_attitude_setpoint_poll();
 	_thrust_sp = _v_att_sp.thrust;
 
@@ -710,28 +673,10 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 
 	/* using sin(alpha/2) scaled rotation axis as attitude error (see quaternion definition by axis angle)
 	 * also taking care of the antipodal unit quaternion ambiguity */
-	Vector3f att_err = 2.f * math::signNoZero(qe(0)) * qe.imag();
-
-	/* create auxiliary state matrices for roll and pitch */
-	float data1[3] = {-_att_int(AXIS_INDEX_ROLL), -att_err(AXIS_INDEX_ROLL), rates(0)};
-	Matrix<float, 3, 1> roll_state(data1);
-	float data2[3] = {-_att_int(AXIS_INDEX_PITCH), -att_err(AXIS_INDEX_PITCH), rates(1)};
-	Matrix<float, 3, 1> pitch_state(data2);
-
-	/* final combined output */
-	float output_roll = (_cnf_F * roll_state + cnf_nonlinear_f(att_err(AXIS_INDEX_ROLL))
-						 * (_cnf_P * roll_state)) * _cnf_J(0)
-						 - (_cnf_J(1)-_cnf_J(2)) * rates(1) * rates(2);
-	float output_pitch = (_cnf_F * pitch_state + cnf_nonlinear_f(att_err(AXIS_INDEX_PITCH))
-						 * (_cnf_P * pitch_state)) * _cnf_J(1)
-						 - (_cnf_J(2)-_cnf_J(0)) * rates(0) * rates(2);
-
-	/* Normalise desired [r p y] from Nm to {-1 1} by dividing by (arm length)(Max thrust) */
-	output_roll /= _cnf_d * _cnf_T0;
-	output_pitch /= _cnf_d * _cnf_T0;
+	_att_err = 2.f * math::signNoZero(qe(0)) * qe.imag();
 
 	/* calculate angular rates setpoint */
-	float _yaw_rate_sp = att_err(2) * _attitude_p(2);
+	_yaw_rate_sp = _att_err(2) * _attitude_p(2);
 
 	/* Feed forward the yaw setpoint rate */
 	_yaw_rate_sp += q.inversed().dcm_z()(2) * _v_att_sp.yaw_sp_move_rate;
@@ -743,6 +688,71 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 	} else {
 		_yaw_rate_sp = math::constrain(_yaw_rate_sp, -_mc_rate_max(2), _mc_rate_max(2));
 	}
+
+}
+
+/*
+ * Composite Nonlinear Feedback Rate controller.
+ * Input: State matrix and angular rate topic
+ * Output: '_att_control' vector
+ */
+void
+MulticopterAttitudeControl::control_cnf_rates(float dt)
+{
+		/* reset integral if disarmed */
+	if (!_v_control_mode.flag_armed || !_vehicle_status.is_rotary_wing) {
+		_rates_int.zero();
+	}
+
+	// get the raw gyro data and correct for thermal errors
+	Vector3f rates;
+
+	if (_selected_gyro == 0) {
+		rates(0) = (_sensor_gyro.x - _sensor_correction.gyro_offset_0[0]) * _sensor_correction.gyro_scale_0[0];
+		rates(1) = (_sensor_gyro.y - _sensor_correction.gyro_offset_0[1]) * _sensor_correction.gyro_scale_0[1];
+		rates(2) = (_sensor_gyro.z - _sensor_correction.gyro_offset_0[2]) * _sensor_correction.gyro_scale_0[2];
+
+	} else if (_selected_gyro == 1) {
+		rates(0) = (_sensor_gyro.x - _sensor_correction.gyro_offset_1[0]) * _sensor_correction.gyro_scale_1[0];
+		rates(1) = (_sensor_gyro.y - _sensor_correction.gyro_offset_1[1]) * _sensor_correction.gyro_scale_1[1];
+		rates(2) = (_sensor_gyro.z - _sensor_correction.gyro_offset_1[2]) * _sensor_correction.gyro_scale_1[2];
+
+	} else if (_selected_gyro == 2) {
+		rates(0) = (_sensor_gyro.x - _sensor_correction.gyro_offset_2[0]) * _sensor_correction.gyro_scale_2[0];
+		rates(1) = (_sensor_gyro.y - _sensor_correction.gyro_offset_2[1]) * _sensor_correction.gyro_scale_2[1];
+		rates(2) = (_sensor_gyro.z - _sensor_correction.gyro_offset_2[2]) * _sensor_correction.gyro_scale_2[2];
+
+	} else {
+		rates(0) = _sensor_gyro.x;
+		rates(1) = _sensor_gyro.y;
+		rates(2) = _sensor_gyro.z;
+	}
+
+	// rotate corrected measurements from sensor to body frame
+	rates = _board_rotation * rates;
+
+	// correct for in-run bias errors
+	rates(0) -= _sensor_bias.gyro_x_bias;
+	rates(1) -= _sensor_bias.gyro_y_bias;
+	rates(2) -= _sensor_bias.gyro_z_bias;
+
+	/* create auxiliary state matrices for roll and pitch */
+	float data1[3] = {-_att_int(AXIS_INDEX_ROLL), -_att_err(AXIS_INDEX_ROLL), rates(0)};
+	Matrix<float, 3, 1> roll_state(data1);
+	float data2[3] = {-_att_int(AXIS_INDEX_PITCH), -_att_err(AXIS_INDEX_PITCH), rates(1)};
+	Matrix<float, 3, 1> pitch_state(data2);
+
+	/* final combined output */
+	float output_roll = (_cnf_F * roll_state + cnf_nonlinear_f(_att_err(AXIS_INDEX_ROLL))
+						 * (_cnf_P * roll_state)) * _cnf_J(0)
+						 - (_cnf_J(1)-_cnf_J(2)) * rates(1) * rates(2);
+	float output_pitch = (_cnf_F * pitch_state + cnf_nonlinear_f(_att_err(AXIS_INDEX_PITCH))
+						 * (_cnf_P * pitch_state)) * _cnf_J(1)
+						 - (_cnf_J(2)-_cnf_J(0)) * rates(0) * rates(2);
+
+	/* Normalise desired [r p y] from Nm to {-1 1} by dividing by (arm length)(Max thrust) */
+	output_roll /= _cnf_d * _cnf_T0;
+	output_pitch /= _cnf_d * _cnf_T0;
 
 	/* yaw angular rates error */
 	float yaw_rate_err = _yaw_rate_sp - rates(2);
@@ -784,18 +794,18 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 
 			// prevent further positive control saturation
 			if (positive_saturation) {
-				att_err(i) = math::min(att_err(i), 0.0f);
+				_att_err(i) = math::min(_att_err(i), 0.0f);
 
 			}
 
 			// prevent further negative control saturation
 			if (negative_saturation) {
-				att_err(i) = math::max(att_err(i), 0.0f);
+				_att_err(i) = math::max(_att_err(i), 0.0f);
 
 			}
 
 			// Perform the integration using a first order method and do not propagate the result if out of range or invalid
-			float att_i = _att_int(i) + _cnf_ki * att_err(i) * dt;
+			float att_i = _att_int(i) + _cnf_ki * _att_err(i) * dt;
 
 			if (PX4_ISFINITE(att_i)) {
 				_att_int(i) = att_i;
@@ -804,6 +814,7 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 		}
 	}
 }
+
 
 void
 MulticopterAttitudeControl::run()
@@ -967,7 +978,9 @@ MulticopterAttitudeControl::run()
 			}
 
 			if (_v_control_mode.flag_control_rates_enabled) {
-				if (!_cnf_enabled) {
+				if (_cnf_enabled) {
+					control_cnf_rates(dt);
+				} else {
 					control_attitude_rates(dt);
 				}
 

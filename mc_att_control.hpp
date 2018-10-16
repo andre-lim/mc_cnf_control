@@ -135,6 +135,11 @@ private:
 	 */
 	void		control_cnf_attitude(float dt);
 
+	/**
+	 * CNF Rate controller.
+	 */
+	void		control_cnf_rates(float dt);
+
 
 	int		_v_att_sub{-1};			/**< vehicle attitude subscription */
 	int		_v_att_sp_sub{-1};		/**< vehicle attitude setpoint subscription */
@@ -191,6 +196,8 @@ private:
 	matrix::Vector3f _att_int;			/**< attitude integral error */
 	float _thrust_sp;				/**< thrust setpoint */
 	matrix::Vector3f _att_control;			/**< attitude control vector */
+	matrix::Vector3f _att_err;				/**< attitude error */
+	float _yaw_rate_sp;
 
 	matrix::Dcmf _board_rotation;			/**< rotation matrix for the orientation that the board is mounted */
 
