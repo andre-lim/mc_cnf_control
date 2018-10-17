@@ -667,6 +667,12 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 	rates(1) -= _sensor_bias.gyro_y_bias;
 	rates(2) -= _sensor_bias.gyro_z_bias;
 
+	/* apply low-pass filtering to the rates for D-term */
+	Vector3f rates_filtered(
+		_lp_filters_d[0].apply(rates(0)),
+		_lp_filters_d[1].apply(rates(1)),
+		_lp_filters_d[2].apply(rates(2)));
+
 	vehicle_attitude_setpoint_poll();
 	_thrust_sp = _v_att_sp.thrust;
 
@@ -720,15 +726,19 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 
 	/* final combined output */
 	float output_roll = (_cnf_F * roll_state + cnf_nonlinear_f(att_err(AXIS_INDEX_ROLL))
-						 * (_cnf_P * roll_state)) * _cnf_J(0)
-						 - (_cnf_J(1)-_cnf_J(2)) * rates(1) * rates(2);
+						 * (_cnf_P * roll_state)) * _cnf_J(AXIS_INDEX_ROLL)
+						 - (_cnf_J(AXIS_INDEX_PITCH)-_cnf_J(2)) * rates(AXIS_INDEX_PITCH) * rates(2);
 	float output_pitch = (_cnf_F * pitch_state + cnf_nonlinear_f(att_err(AXIS_INDEX_PITCH))
-						 * (_cnf_P * pitch_state)) * _cnf_J(1)
-						 - (_cnf_J(2)-_cnf_J(0)) * rates(0) * rates(2);
+						 * (_cnf_P * pitch_state)) * _cnf_J(AXIS_INDEX_PITCH)
+						 - (_cnf_J(2)-_cnf_J(AXIS_INDEX_ROLL)) * rates(AXIS_INDEX_ROLL) * rates(2);
 
 	/* Normalise desired [r p y] from Nm to {-1 1} by dividing by (arm length)(Max thrust) */
 	output_roll /= _cnf_d * _cnf_T0;
 	output_pitch /= _cnf_d * _cnf_T0;
+
+	/* Add rate derivative term to deal with motor delay*/
+	output_roll += _rate_d(AXIS_INDEX_ROLL) * (rates_filtered(0) - _rates_prev_filtered(0)) / dt;
+	output_pitch += _rate_d(AXIS_INDEX_PITCH) * (rates_filtered(1) - _rates_prev_filtered(1)) / dt;
 
 	/* calculate angular rates setpoint */
 	float _yaw_rate_sp = att_err(2) * _attitude_p(2);
@@ -747,19 +757,16 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 	/* yaw angular rates error */
 	float yaw_rate_err = _yaw_rate_sp - rates(2);
 
-	/* apply low-pass filtering to the rates for D-term */
-	float yaw_rate_filtered(_lp_filters_d[2].apply(rates(2)));
-
 	Vector3f rates_p_scaled = _rate_p.emult(pid_attenuations(_tpa_breakpoint_p.get(), _tpa_rate_p.get()));
 	Vector3f rates_d_scaled = _rate_d.emult(pid_attenuations(_tpa_breakpoint_d.get(), _tpa_rate_d.get()));
 
 	float output_yaw = rates_p_scaled(2) * yaw_rate_err +
 						_rates_int(2) -
-						rates_d_scaled(2) * (yaw_rate_filtered - _yaw_rate_prev_filtered) / dt +
+						rates_d_scaled(2) * (rates_filtered(2) - _yaw_rate_prev_filtered) / dt +
 						_rate_ff(2) * _yaw_rate_sp;
 
 	_rates_prev = rates;
-	_yaw_rate_prev_filtered = yaw_rate_filtered;
+	_rates_prev_filtered = rates_filtered;
 
 
 	/* copy output to _att_control to publish actuator_controls message */
