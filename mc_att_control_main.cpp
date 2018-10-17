@@ -214,6 +214,10 @@ MulticopterAttitudeControl::parameters_updated()
 	_cnf_d = _cnf_armlength.get() / sqrtf(2);
 	_cnf_T0 = _cnf_maxthrust.get();
 
+	/* get yaw mix ratio and derivative prediction */
+	_cnf_yaw = _cnf_yaw_ratio.get();
+	_cnf_pd = _cnf_prediction.get();
+
 	/* get transformation matrix from sensor/board to body frame */
 	_board_rotation = get_rot_matrix((enum Rotation)_board_rotation_param.get());
 
@@ -700,16 +704,13 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 		qd_red *= q;
 	}
 
-	/* Set the ratio between yaw and roll/pitch */
-	const float yaw_w = 0.1f;
-
 	/* mix full and reduced desired attitude */
 	Quatf q_mix = qd_red.inversed() * qd;
 	q_mix *= math::signNoZero(q_mix(0));
 	/* catch numerical problems with the domain of acosf and asinf */
 	q_mix(0) = math::constrain(q_mix(0), -1.f, 1.f);
 	q_mix(3) = math::constrain(q_mix(3), -1.f, 1.f);
-	qd = qd_red * Quatf(cosf(yaw_w * acosf(q_mix(0))), 0, 0, sinf(yaw_w * asinf(q_mix(3))));
+	qd = qd_red * Quatf(cosf(_cnf_yaw * acosf(q_mix(0))), 0, 0, sinf(_cnf_yaw * asinf(q_mix(3))));
 
 	/* quaternion attitude control law, qe is rotation from q to qd */
 	Quatf qe = q.inversed() * qd;
@@ -736,9 +737,9 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 	output_roll /= _cnf_d * _cnf_T0;
 	output_pitch /= _cnf_d * _cnf_T0;
 
-	/* Add rate derivative term to deal with motor delay*/
-	output_roll += _rate_d(AXIS_INDEX_ROLL) * (rates_filtered(0) - _rates_prev_filtered(0)) / dt;
-	output_pitch += _rate_d(AXIS_INDEX_PITCH) * (rates_filtered(1) - _rates_prev_filtered(1)) / dt;
+	// /* Add rate derivative term to deal with motor delay*/
+	// output_roll += _rate_d(AXIS_INDEX_ROLL) * (rates_filtered(0) - _rates_prev_filtered(0)) / dt;
+	// output_pitch += _rate_d(AXIS_INDEX_PITCH) * (rates_filtered(1) - _rates_prev_filtered(1)) / dt;
 
 	/* calculate angular rates setpoint */
 	float _yaw_rate_sp = att_err(2) * _attitude_p(2);
@@ -768,11 +769,13 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 	_rates_prev = rates;
 	_rates_prev_filtered = rates_filtered;
 
-
 	/* copy output to _att_control to publish actuator_controls message */
-	_att_control(AXIS_INDEX_ROLL) = math::constrain(output_roll, -1.0f, 1.0f);
-	_att_control(AXIS_INDEX_PITCH) = math::constrain(output_pitch, -1.0f, 1.0f);
+	_att_control(AXIS_INDEX_ROLL) = math::constrain(output_roll + _cnf_pd * (output_roll - _output_roll_prev) / dt, -1.0f, 1.0f);
+	_att_control(AXIS_INDEX_PITCH) = math::constrain(output_pitch + _cnf_pd * (output_pitch - _output_pitch_prev) / dt, -1.0f, 1.0f);
 	_att_control(AXIS_INDEX_YAW) = math::constrain(output_yaw, -1.0f, 1.0f);
+
+	_output_roll_prev = output_roll;
+	_output_pitch_prev = output_pitch;
 
 	/* update integral only if we are not landed */
 	if (!_vehicle_land_detected.maybe_landed && !_vehicle_land_detected.landed) {

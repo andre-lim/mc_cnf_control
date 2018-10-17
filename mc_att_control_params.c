@@ -769,3 +769,29 @@ PARAM_DEFINE_FLOAT(MC_CNF_JYY, 0.78f);
  * @group CNF Control
  */
 PARAM_DEFINE_FLOAT(MC_CNF_JZZ, 1.329f);
+
+/**
+ * CNF Yaw mixing ratio
+ * 
+ * Amount of yaw to mix with roll/pitch
+ * 
+ * @min 0.1
+ * @max 1.0
+ * @decimal 1
+ * @increment 0.1
+ * @group CNF Control
+ */
+PARAM_DEFINE_FLOAT(MC_CNF_YAW_RATIO, 0.5f);
+
+/**
+ * CNF Motor response prediction
+ * 
+ * Amount of prediction to apply to motor response
+ * 
+ * @min 0.1
+ * @max 1.0
+ * @decimal 1
+ * @increment 0.1
+ * @group CNF Control
+ */
+PARAM_DEFINE_FLOAT(MC_CNF_PD, 0.5f);
