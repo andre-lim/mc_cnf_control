@@ -790,8 +790,21 @@ PARAM_DEFINE_FLOAT(MC_CNF_YAW_RATIO, 0.5f);
  * 
  * @min 0.1
  * @max 1.0
- * @decimal 1
- * @increment 0.1
+ * @decimal 2
+ * @increment 0.01
  * @group CNF Control
  */
-PARAM_DEFINE_FLOAT(MC_CNF_PD, 0.5f);
+PARAM_DEFINE_FLOAT(MC_CNF_PD_ROLL, 0.02f);
+
+/**
+ * CNF Motor response prediction
+ * 
+ * Amount of prediction to apply to motor response
+ * 
+ * @min 0.1
+ * @max 1.0
+ * @decimal 2
+ * @increment 0.01
+ * @group CNF Control
+ */
+PARAM_DEFINE_FLOAT(MC_CNF_PD_PITCH, 0.01f);

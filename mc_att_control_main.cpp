@@ -216,7 +216,8 @@ MulticopterAttitudeControl::parameters_updated()
 
 	/* get yaw mix ratio and derivative prediction */
 	_cnf_yaw = _cnf_yaw_ratio.get();
-	_cnf_pd = _cnf_prediction.get();
+	_cnf_pd_roll = _cnf_prediction_roll.get();
+	_cnf_pd_pitch = _cnf_prediction_pitch.get();
 
 	/* get transformation matrix from sensor/board to body frame */
 	_board_rotation = get_rot_matrix((enum Rotation)_board_rotation_param.get());
@@ -770,8 +771,8 @@ MulticopterAttitudeControl::control_cnf_attitude(float dt)
 	_rates_prev_filtered = rates_filtered;
 
 	/* copy output to _att_control to publish actuator_controls message */
-	_att_control(AXIS_INDEX_ROLL) = math::constrain(output_roll + _cnf_pd * (output_roll - _output_roll_prev) / dt, -1.0f, 1.0f);
-	_att_control(AXIS_INDEX_PITCH) = math::constrain(output_pitch + _cnf_pd * (output_pitch - _output_pitch_prev) / dt, -1.0f, 1.0f);
+	_att_control(AXIS_INDEX_ROLL) = math::constrain(output_roll + _cnf_pd_roll * (output_roll - _output_roll_prev) / dt, -1.0f, 1.0f);
+	_att_control(AXIS_INDEX_PITCH) = math::constrain(output_pitch + _cnf_pd_pitch * (output_pitch - _output_pitch_prev) / dt, -1.0f, 1.0f);
 	_att_control(AXIS_INDEX_YAW) = math::constrain(output_yaw, -1.0f, 1.0f);
 
 	_output_roll_prev = output_roll;

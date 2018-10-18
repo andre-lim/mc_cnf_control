@@ -273,7 +273,8 @@ private:
 		(ParamFloat<px4::params::MC_CNF_JZZ>) _cnf_jzz,
 
 		(ParamFloat<px4::params::MC_CNF_YAW_RATIO>) _cnf_yaw_ratio,
-		(ParamFloat<px4::params::MC_CNF_PD>) _cnf_prediction
+		(ParamFloat<px4::params::MC_CNF_PD_ROLL>) _cnf_prediction_roll,
+		(ParamFloat<px4::params::MC_CNF_PD_PITCH>) _cnf_prediction_pitch
 	)
 
 	matrix::Vector3f _attitude_p;		/**< P gain for attitude control */
@@ -300,7 +301,8 @@ private:
 	float _cnf_T0;
 
 	float _cnf_yaw;
-	float _cnf_pd;
+	float _cnf_pd_roll;
+	float _cnf_pd_pitch;
 
 	matrix::Vector3f _cnf_J;
 
