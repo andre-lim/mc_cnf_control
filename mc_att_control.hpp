@@ -192,6 +192,9 @@ private:
 	float _thrust_sp;				/**< thrust setpoint */
 	matrix::Vector3f _att_control;			/**< attitude control vector */
 
+	float _output_roll_prev;
+	float _output_pitch_prev;
+
 	matrix::Dcmf _board_rotation;			/**< rotation matrix for the orientation that the board is mounted */
 
 	DEFINE_PARAMETERS(
@@ -267,7 +270,11 @@ private:
 
 		(ParamFloat<px4::params::MC_CNF_JXX>) _cnf_jxx,
 		(ParamFloat<px4::params::MC_CNF_JYY>) _cnf_jyy,
-		(ParamFloat<px4::params::MC_CNF_JZZ>) _cnf_jzz
+		(ParamFloat<px4::params::MC_CNF_JZZ>) _cnf_jzz,
+
+		(ParamFloat<px4::params::MC_CNF_YAW_RATIO>) _cnf_yaw_ratio,
+		(ParamFloat<px4::params::MC_CNF_PD_ROLL>) _cnf_prediction_roll,
+		(ParamFloat<px4::params::MC_CNF_PD_PITCH>) _cnf_prediction_pitch
 	)
 
 	matrix::Vector3f _attitude_p;		/**< P gain for attitude control */
@@ -292,6 +299,10 @@ private:
 
 	float _cnf_d;
 	float _cnf_T0;
+
+	float _cnf_yaw;
+	float _cnf_pd_roll;
+	float _cnf_pd_pitch;
 
 	matrix::Vector3f _cnf_J;
 
