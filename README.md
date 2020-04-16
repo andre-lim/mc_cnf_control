@@ -3,7 +3,7 @@ Composite Nonlinear Feedback for PX4
 
 Implementation of a composite nonlinear feedback (cnf) attitude controller for px4.
 https://ieeexplore.ieee.org/document/7576819
-CNF allows for quick settling time and no overshoot by smootly varying damping as the error decreases.
+CNF allows for quick settling time and no overshoot by smoothly varying damping as the error decreases.
 
 Instructions:
 1. Download px4 v1.8.0 from https://github.com/PX4/Firmware
